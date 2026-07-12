@@ -376,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const pasosProcedimiento = inputPasos.value.trim();
         const descripcionTexto = inputDescripcion.value.trim();
-        const categoriaSeleccionada = null; // No hay input de categoría en la UI
+        const categoriaSeleccionada = "Pastelería"; // Categoría por defecto para satisfacer restricción NOT NULL
         const imagenPorDefecto = 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop';
         const imagenFinal = window.recetaImagenBase64 || imagenPorDefecto;
 
@@ -754,7 +754,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         user_id: userId,
                         nombre: recetaInfo.nombre,
                         pasos: recetaInfo.pasos,
-                        margen: recetaInfo.margen_ganancia // Corregido
+                        margen: recetaInfo.margen_ganancia, // Corregido
+                        categoria: "Pastelería" // Categoría por defecto
                     }])
                     .select()
                     .single();
