@@ -137,15 +137,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 const { data: { user }, error: userError } = await window.supabase.auth.getUser();
                 if (userError || !user) throw new Error("Usuario no autenticado en Supabase.");
 
-                // Guardado físico en la tabla 'ingredientes'
+                // Guardado físico en la tabla 'ingredientes' (usando columnas reales del esquema)
                 const { data, error } = await window.supabase
                     .from('ingredientes')
                     .insert([{
                         user_id: user.id,
                         nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1).toLowerCase(),
-                        precio_paquete: precio,
-                        cantidad_paquete: cantidadCompra,
-                        unidad_medida: unidad
+                        precio_compra: precio,
+                        cantidad_compra: cantidadCompra,
+                        unidad: unidad,
+                        precio: precio / cantidadCompra
                     }])
                     .select();
 
@@ -155,10 +156,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const nuevoIng = {
                     id: item.id,
                     nombre: item.nombre,
-                    cantidadCompra: parseFloat(item.cantidad_paquete),
-                    precioCompra: parseFloat(item.precio_paquete),
-                    unidad: item.unidad_medida,
-                    precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
+                    cantidadCompra: parseFloat(item.cantidad_compra),
+                    precioCompra: parseFloat(item.precio_compra),
+                    unidad: item.unidad,
+                    precio: parseFloat(item.precio)
                 };
 
                 window.sweetcostIngredientes.push(nuevoIng);
@@ -333,14 +334,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 const mappedIngredientes = (item.ingredientes_receta || []).map(ri => {
                     const ing = ri.ingredientes;
                     if (!ing) return null;
-                    const precioUnitario = parseFloat(ing.precio_paquete) / parseFloat(ing.cantidad_paquete);
+                    const precioUnitario = parseFloat(ing.precio);
                     return {
                         id: ing.id,
                         nombre: ing.nombre,
                         precio: precioUnitario,
-                        unidad: ing.unidad_medida, // unidad base
+                        unidad: ing.unidad, // unidad base
                         cantidadReceta: parseFloat(ri.cantidad), // cantidad convertida en base
-                        unidadReceta: ing.unidad_medida // desplegado en unidad base
+                        unidadReceta: ing.unidad // desplegado en unidad base
                     };
                 }).filter(Boolean);
 
@@ -754,15 +755,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (ingredienteExistente && ingredienteExistente.length > 0) {
                         ingredienteId = ingredienteExistente[0].id;
                     } else {
-                        // Crear el ingrediente de muestra
+                        // Crear el ingrediente de muestra (usando las columnas reales del esquema)
                         const { data: nuevoIngrediente, error: errorCrearIng } = await window.supabase
                             .from('ingredientes')
                             .insert([{
                                 user_id: userId,
                                 nombre: ingInfo.nombre,
-                                precio_paquete: ingInfo.precio_paquete,
-                                cantidad_paquete: ingInfo.cantidad_paquete,
-                                unidad_medida: ingInfo.unidad_medida
+                                precio_compra: ingInfo.precio_paquete,
+                                cantidad_compra: ingInfo.cantidad_paquete,
+                                unidad: ingInfo.unidad_medida,
+                                precio: ingInfo.precio_paquete / ingInfo.cantidad_paquete
                             }])
                             .select()
                             .single();

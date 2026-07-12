@@ -178,10 +178,10 @@ document.addEventListener("DOMContentLoaded", () => {
             window.sweetcostIngredientes = (data || []).map(item => ({
                 id: item.id,
                 nombre: item.nombre,
-                cantidadCompra: parseFloat(item.cantidad_paquete),
-                precioCompra: parseFloat(item.precio_paquete),
-                unidad: item.unidad_medida,
-                precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
+                cantidadCompra: parseFloat(item.cantidad_compra),
+                precioCompra: parseFloat(item.precio_compra),
+                unidad: item.unidad,
+                precio: parseFloat(item.precio)
             }));
 
             window.renderizarTablaIngredientes();
@@ -227,15 +227,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 const user = window.currentUser || userResponse.data?.user;
                 if (!user) throw new Error("Usuario no autenticado en Supabase.");
 
-                // 3. MAPEO ESTRICTO CON LA BASE DE DATOS (precio_paquete, cantidad_paquete, unidad_medida)
+                const nombreFormateado = nombre.charAt(0).toUpperCase() + nombre.slice(1).toLowerCase();
+
+                // 3. MAPEO ESTRICTO CON LA BASE DE DATOS (user_id, nombre, cantidad_compra, precio_compra, unidad, precio)
                 const { data, error } = await window.supabase
                     .from('ingredientes')
                     .insert([{
                         user_id: user.id,
-                        nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1).toLowerCase(),
-                        precio_paquete: precioCompra,
-                        cantidad_paquete: cantidadCompra,
-                        unidad_medida: unidad
+                        nombre: nombreFormateado,
+                        cantidad_compra: cantidadCompra,
+                        precio_compra: precioCompra,
+                        unidad: unidad,
+                        precio: precioCompra / cantidadCompra
                     }])
                     .select();
 
@@ -245,10 +248,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const nuevoIngrediente = {
                     id: item.id,
                     nombre: item.nombre,
-                    cantidadCompra: parseFloat(item.cantidad_paquete),
-                    precioCompra: parseFloat(item.precio_paquete),
-                    unidad: item.unidad_medida,
-                    precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
+                    cantidadCompra: parseFloat(item.cantidad_compra),
+                    precioCompra: parseFloat(item.precio_compra),
+                    unidad: item.unidad,
+                    precio: parseFloat(item.precio)
                 };
 
                 window.sweetcostIngredientes.push(nuevoIngrediente);
@@ -327,13 +330,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tieneError) return;
 
         try {
+            // MAPEO ESTRICTO CON LA BASE DE DATOS (cantidad_compra, precio_compra, unidad, precio)
             const { error } = await window.supabase
                 .from('ingredientes')
                 .update({
                     nombre: nuevoNombre,
-                    cantidad_paquete: nuevaCantidadCompra,
-                    precio_paquete: nuevoPrecioCompra,
-                    unidad_medida: nuevaUnidad
+                    cantidad_compra: nuevaCantidadCompra,
+                    precio_compra: nuevoPrecioCompra,
+                    unidad: nuevaUnidad,
+                    precio: nuevoPrecioCompra / nuevaCantidadCompra
                 })
                 .eq('id', id);
 
@@ -369,6 +374,9 @@ document.addEventListener("DOMContentLoaded", () => {
             alert("Error al actualizar ingrediente: " + (err.message || err));
         }
     };
+
+    // Registrar alias para guardarPrecioIngredienteInline
+    window.guardarPrecioIngredienteInline = window.guardarEdicionIngredienteInline;
 
     // Borrado físico de ingrediente con confirmación nativa
     window.eliminarIngrediente = async (id) => {
