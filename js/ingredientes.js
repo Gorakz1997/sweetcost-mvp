@@ -181,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 cantidadCompra: parseFloat(item.cantidad_paquete),
                 precioCompra: parseFloat(item.precio_paquete),
                 unidad: item.unidad_medida,
-                precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete) // LÓGICA DEL PRECIO UNITARIO
+                precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
             }));
 
             window.renderizarTablaIngredientes();
@@ -197,50 +197,66 @@ document.addEventListener("DOMContentLoaded", () => {
     if (formCargaRapida) {
         formCargaRapida.addEventListener("submit", async (e) => {
             e.preventDefault();
+            
+            // 1. CAPTURA CORRECTA DE INPUTS Y PARSEO EXPLÍCITO
+            const inputNombre = document.getElementById("input-nombre-rapido");
+            const inputPrecio = document.getElementById("input-precio-rapido");
+            const selectUnidad = document.getElementById("select-unidad-rapida");
+            const inputCantidadCompra = document.getElementById("input-cantidad-compra-rapida");
+
+            if (!inputNombre || !inputPrecio || !selectUnidad || !inputCantidadCompra) return;
+
+            const nombre = inputNombre.value.trim();
+            const precioCompra = parseFloat(inputPrecio.value);
+            const cantidadCompra = parseFloat(inputCantidadCompra.value);
+            const unidad = selectUnidad.value;
+
+            // 2. COMPROBACIÓN DE CAMPOS (Evitar enviar valores NaN)
+            if (!nombre || isNaN(precioCompra) || isNaN(cantidadCompra) || cantidadCompra <= 0) {
+                alert("Por favor, completa todos los campos con valores válidos.");
+                return;
+            }
+
             const originalText = document.getElementById("btn-guardar-rapido").textContent;
             try {
-                const nombre = window.capitalizarTexto(inputNombre.value.trim());
-                const precioTotal = parseFloat(inputPrecio.value);
-                const unidad = selectUnidad.value;
-                const cantidadCompra = parseFloat(inputCantidadCompra.value);
+                document.getElementById("btn-guardar-rapido").disabled = true;
+                document.getElementById("btn-guardar-rapido").textContent = "Guardando...";
 
-                if (nombre && !isNaN(precioTotal) && !isNaN(cantidadCompra) && cantidadCompra > 0) {
-                    document.getElementById("btn-guardar-rapido").disabled = true;
-                    document.getElementById("btn-guardar-rapido").textContent = "Guardando...";
+                // Obtener sesión de usuario activa
+                const userResponse = await window.supabase.auth.getUser();
+                const user = window.currentUser || userResponse.data?.user;
+                if (!user) throw new Error("Usuario no autenticado en Supabase.");
 
-                    const { data: { user }, error: userError } = await window.supabase.auth.getUser();
-                    if (userError || !user) throw new Error("Usuario no autenticado en Supabase.");
+                // 3. MAPEO ESTRICTO CON LA BASE DE DATOS (precio_paquete, cantidad_paquete, unidad_medida)
+                const { data, error } = await window.supabase
+                    .from('ingredientes')
+                    .insert([{
+                        user_id: user.id,
+                        nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1).toLowerCase(),
+                        precio_paquete: precioCompra,
+                        cantidad_paquete: cantidadCompra,
+                        unidad_medida: unidad
+                    }])
+                    .select();
 
-                    const { data, error } = await window.supabase
-                        .from('ingredientes')
-                        .insert([{
-                            user_id: user.id,
-                            nombre: nombre,
-                            precio_paquete: precioTotal,
-                            cantidad_paquete: cantidadCompra,
-                            unidad_medida: unidad
-                        }])
-                        .select();
+                if (error) throw error;
 
-                    if (error) throw error;
+                const item = data[0];
+                const nuevoIngrediente = {
+                    id: item.id,
+                    nombre: item.nombre,
+                    cantidadCompra: parseFloat(item.cantidad_paquete),
+                    precioCompra: parseFloat(item.precio_paquete),
+                    unidad: item.unidad_medida,
+                    precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
+                };
 
-                    const item = data[0];
-                    const nuevoIngrediente = {
-                        id: item.id,
-                        nombre: item.nombre,
-                        cantidadCompra: parseFloat(item.cantidad_paquete),
-                        precioCompra: parseFloat(item.precio_paquete),
-                        unidad: item.unidad_medida,
-                        precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
-                    };
+                window.sweetcostIngredientes.push(nuevoIngrediente);
+                formCargaRapida.reset();
 
-                    window.sweetcostIngredientes.push(nuevoIngrediente);
-                    formCargaRapida.reset();
-
-                    window.renderizarTablaIngredientes();
-                    if (typeof window.poblarSelectIngredientes === 'function') {
-                        window.poblarSelectIngredientes();
-                    }
+                window.renderizarTablaIngredientes();
+                if (typeof window.poblarSelectIngredientes === 'function') {
+                    window.poblarSelectIngredientes();
                 }
             } catch (err) {
                 console.error("Error al guardar ingrediente:", err);

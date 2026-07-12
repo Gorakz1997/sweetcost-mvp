@@ -1,4 +1,5 @@
 // js/app.js
+// Inicializador General y Enrutador de SweetCost Cloud
 
 // Inicialización de Supabase con la clave de producción
 const supabaseUrl = 'https://bywdlwnsziivnbhbfcpm.supabase.co';
@@ -13,7 +14,7 @@ window.supabase.auth.onAuthStateChange(async (event, session) => {
     const mainContainer = document.getElementById("main-container");
 
     if (session) {
-        // Guardar token/usuario activo globalmente
+        // Guardar token y usuario activo globalmente
         window.sessionToken = session.access_token;
         window.currentUser = session.user;
 
@@ -22,7 +23,7 @@ window.supabase.auth.onAuthStateChange(async (event, session) => {
         if (navbarApp) navbarApp.classList.remove("hidden");
         if (mainContainer) mainContainer.classList.remove("hidden");
 
-        // Carga de datos en cascada (Ingredientes -> Recetas)
+        // Carga de datos en cascada y seeding automatizado
         try {
             if (typeof window.cargarIngredientesDesdeSupabase === 'function') {
                 await window.cargarIngredientesDesdeSupabase();
@@ -30,8 +31,22 @@ window.supabase.auth.onAuthStateChange(async (event, session) => {
             if (typeof window.cargarRecetasDesdeSupabase === 'function') {
                 await window.cargarRecetasDesdeSupabase();
             }
+            
+            // Lanzar el Seeder si el usuario tiene 0 recetas guardadas
+            if (typeof window.ejecutarSeederSiEsNecesario === 'function') {
+                const seEjecuto = await window.ejecutarSeederSiEsNecesario(session.user.id);
+                if (seEjecuto) {
+                    // Si se agregaron recetas de muestra, recargamos la info desde la nube
+                    if (typeof window.cargarIngredientesDesdeSupabase === 'function') {
+                        await window.cargarIngredientesDesdeSupabase();
+                    }
+                    if (typeof window.cargarRecetasDesdeSupabase === 'function') {
+                        await window.cargarRecetasDesdeSupabase();
+                    }
+                }
+            }
         } catch (err) {
-            console.error("Error al cargar datos de la base de datos:", err);
+            console.error("Error en la inicialización de datos de usuario:", err);
         }
     } else {
         // Limpiar sesión activa
@@ -45,15 +60,9 @@ window.supabase.auth.onAuthStateChange(async (event, session) => {
     }
 });
 
-// 1. Estado Global - Recuperación inicial desde localStorage (fallback inicial vacío)
-try {
-    window.sweetcostIngredientes = JSON.parse(localStorage.getItem('sweetcost_ingredientes')) || [];
-    window.sweetcostRecetas = JSON.parse(localStorage.getItem('sweetcost_recetas')) || [];
-} catch (e) {
-    console.error("Error al cargar datos desde localStorage:", e);
-    window.sweetcostIngredientes = [];
-    window.sweetcostRecetas = [];
-}
+// Estado Global en Memoria (se sincroniza con Supabase en vez del viejo localStorage)
+window.sweetcostIngredientes = [];
+window.sweetcostRecetas = [];
 
 // Función utilitaria global para capitalizar textos
 window.capitalizarTexto = (texto) => {
@@ -72,7 +81,6 @@ window.mostrarConfirmacion = (titulo, mensaje, alAceptar) => {
     const btnCancelar = document.getElementById("btn-confirm-cancelar");
 
     if (!modal || !tit || !msg || !btnAceptar || !btnCancelar) {
-        // Fallback si los elementos del modal no se encuentran
         if (confirm(mensaje)) {
             alAceptar();
         }
@@ -83,7 +91,6 @@ window.mostrarConfirmacion = (titulo, mensaje, alAceptar) => {
     msg.textContent = mensaje;
     modal.classList.remove("hidden");
 
-    // Limpiar event listeners previos clonando y reemplazando los botones
     const nuevoBtnAceptar = btnAceptar.cloneNode(true);
     const nuevoBtnCancelar = btnCancelar.cloneNode(true);
     btnAceptar.replaceWith(nuevoBtnAceptar);
@@ -101,7 +108,6 @@ window.mostrarConfirmacion = (titulo, mensaje, alAceptar) => {
 
 // Inicialización de la UI y Manejo de Pestañas
 document.addEventListener("DOMContentLoaded", () => {
-    // 2. Intercambio de Pestañas
     const btnTabIngredientes = document.getElementById("btn-tab-ingredientes");
     const btnTabRecetas = document.getElementById("btn-tab-recetas");
 
@@ -119,39 +125,32 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (tab === "ingredientes") {
-            // Mostrar Ingredientes, ocultar Recetas
             seccionRecetas.classList.add("hidden");
             seccionIngredientes.classList.remove("hidden");
 
-            // Forzar renderizado
             if (typeof window.renderizarTablaIngredientes === 'function') {
                 window.renderizarTablaIngredientes();
             }
 
-            // Estilos visuales del botón activo
             btnTabIngredientes.classList.replace("bg-white", "bg-[var(--secondary-container)]");
             btnTabRecetas.classList.replace("bg-[var(--secondary-container)]", "bg-white");
         } else {
-            // Mostrar Recetas, ocultar Ingredientes
             seccionIngredientes.classList.add("hidden");
             seccionRecetas.classList.remove("hidden");
 
-            // Forzar renderizado
             if (typeof window.renderizarGridRecetas === 'function') {
                 window.renderizarGridRecetas();
             }
 
-            // Estilos visuales del botón activo
             btnTabRecetas.classList.replace("bg-white", "bg-[var(--secondary-container)]");
             btnTabIngredientes.classList.replace("bg-[var(--secondary-container)]", "bg-white");
         }
     };
 
-    // Listeners para los botones del Navbar
-    btnTabIngredientes.addEventListener("click", () => setActiveTab("ingredientes"));
-    btnTabRecetas.addEventListener("click", () => setActiveTab("recetas"));
+    if (btnTabIngredientes) btnTabIngredientes.addEventListener("click", () => setActiveTab("ingredientes"));
+    if (btnTabRecetas) btnTabRecetas.addEventListener("click", () => setActiveTab("recetas"));
 
-    // 3. Colapsar/Expandir Panel de Carga Rápida
+    // Colapsar/Expandir Panel de Carga Rápida
     const btnToggleCargaRapida = document.getElementById("btn-toggle-carga-rapida");
     const formCargaRapida = document.getElementById("form-carga-rapida");
 
@@ -162,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 4. Buscador Dinámico Global
+    // Buscador Dinámico Global
     if (inputBuscarGlobal) {
         inputBuscarGlobal.addEventListener("input", (e) => {
             const termino = e.target.value.toLowerCase().trim();
