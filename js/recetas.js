@@ -353,7 +353,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     ingredientes: mappedIngredientes,
                     descripcion: item.descripcion || "",
                     pasos: item.pasos || "",
-                    visibilidad: item.visibilidad,
                     costoTotal: parseFloat(item.costo_total || 0),
                     precioSugerido: parseFloat(item.precio_sugerido || 0)
                 };
@@ -415,8 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         pasos: pasosProcedimiento,
                         margen: margenValor,       // Corregido
                         costo_total: costoTotal,
-                        precio_sugerido: precioSugerido,
-                        visibilidad: 'privada' // por defecto
+                        precio_sugerido: precioSugerido
                     })
                     .eq('id', recetaId);
 
@@ -441,8 +439,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         pasos: pasosProcedimiento,
                         margen: margenValor,       // Corregido
                         costo_total: costoTotal,
-                        precio_sugerido: precioSugerido,
-                        visibilidad: 'privada' // por defecto
+                        precio_sugerido: precioSugerido
                     }])
                     .select()
                     .single();
@@ -757,8 +754,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         user_id: userId,
                         nombre: recetaInfo.nombre,
                         pasos: recetaInfo.pasos,
-                        margen: recetaInfo.margen_ganancia, // Corregido
-                        visibilidad: recetaInfo.visibilidad
+                        margen: recetaInfo.margen_ganancia // Corregido
                     }])
                     .select()
                     .single();
