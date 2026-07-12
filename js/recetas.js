@@ -340,7 +340,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         nombre: ing.nombre,
                         precio: precioUnitario,
                         unidad: ing.unidad, // unidad base
-                        cantidadReceta: parseFloat(ri.cantidad), // cantidad convertida en base
+                        cantidadReceta: parseFloat(ri.cantidad_receta), // cantidad convertida en base
                         unidadReceta: ing.unidad // desplegado en unidad base
                     };
                 }).filter(Boolean);
@@ -460,7 +460,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     return {
                         receta_id: recetaId,
                         ingrediente_id: ing.id,
-                        cantidad: cantidadBase
+                        cantidad_receta: cantidadBase
                     };
                 });
 
@@ -803,7 +803,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     recetaIngredientesRows.push({
                         receta_id: recetaId,
                         ingrediente_id: ingredienteId,
-                        cantidad: ingInfo.cantidad_utilizada
+                        cantidad_receta: ingInfo.cantidad_utilizada
                     });
                 }
 
