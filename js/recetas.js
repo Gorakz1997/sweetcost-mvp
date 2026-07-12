@@ -460,7 +460,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     return {
                         receta_id: recetaId,
                         ingrediente_id: ing.id,
-                        cantidad_receta: cantidadBase
+                        cantidad_receta: cantidadBase,
+                        unidad_receta: unidadBase
                     };
                 });
 
@@ -803,7 +804,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     recetaIngredientesRows.push({
                         receta_id: recetaId,
                         ingrediente_id: ingredienteId,
-                        cantidad_receta: ingInfo.cantidad_utilizada
+                        cantidad_receta: ingInfo.cantidad_utilizada,
+                        unidad_receta: ingInfo.unidad_medida
                     });
                 }
 
