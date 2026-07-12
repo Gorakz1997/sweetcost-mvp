@@ -348,12 +348,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 return {
                     id: item.id,
                     nombre: item.nombre,
-                    imagen: 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop',
-                    margen: parseFloat(item.margen_ganancia),
+                    imagen: item.imagen || 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop',
+                    margen: parseFloat(item.margen || 0),
                     ingredientes: mappedIngredientes,
-                    descripcion: "",
+                    descripcion: item.descripcion || "",
                     pasos: item.pasos || "",
-                    visibilidad: item.visibilidad
+                    visibilidad: item.visibilidad,
+                    costoTotal: parseFloat(item.costo_total || 0),
+                    precioSugerido: parseFloat(item.precio_sugerido || 0)
                 };
             });
 
@@ -365,15 +367,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Guardar Receta (Transacción lógica de 2 pasos en ingredientes_receta) ---
     btnGuardarReceta.addEventListener("click", async () => {
-        const nombre = window.capitalizarTexto(inputNombreReceta.value.trim());
-        const margen = parseFloat(inputMargen.value) || 0;
+        const nombreFormateado = window.capitalizarTexto(inputNombreReceta.value.trim());
+        const margenValor = parseFloat(inputMargen.value) || 0;
 
-        if (!nombre) {
+        if (!nombreFormateado) {
             alert("El nombre de la receta es obligatorio.");
             return;
         }
 
-        const pasos = inputPasos.value.trim();
+        const pasosProcedimiento = inputPasos.value.trim();
+        const descripcionTexto = inputDescripcion.value.trim();
+        const categoriaSeleccionada = null; // No hay input de categoría en la UI
+        const imagenPorDefecto = 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop';
+        const imagenFinal = window.recetaImagenBase64 || imagenPorDefecto;
+
+        // Calcular costo_total y precio_sugerido antes de enviar
+        let costoTotal = 0;
+        window.ingredientesRecetaActual.forEach(ing => {
+            const ingredienteGlobal = window.sweetcostIngredientes.find(i => i.id === ing.id);
+            const precioRef = ingredienteGlobal ? ingredienteGlobal.precio : ing.precio;
+            const de = ing.cantidadReceta !== undefined ? ing.cantidadReceta : ing.cantidad;
+            const deUnidad = ing.unidadReceta !== undefined ? ing.unidadReceta : ing.unidad;
+            const aUnidad = ingredienteGlobal ? ingredienteGlobal.unidad : ing.unidad;
+            const cantidadBase = convertirUnidad(de, deUnidad, aUnidad);
+            costoTotal += (precioRef * cantidadBase);
+        });
+        const precioSugerido = costoTotal * (1 + (margenValor / 100));
 
         btnGuardarReceta.disabled = true;
         btnGuardarReceta.textContent = "Guardando...";
@@ -389,9 +408,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 const { error: updateError } = await window.supabase
                     .from('recetas')
                     .update({
-                        nombre: nombre,
-                        pasos: pasos,
-                        margen_ganancia: margen,
+                        nombre: nombreFormateado,
+                        categoria: categoriaSeleccionada,
+                        imagen: imagenFinal,
+                        descripcion: descripcionTexto,
+                        pasos: pasosProcedimiento,
+                        margen: margenValor,       // Corregido
+                        costo_total: costoTotal,
+                        precio_sugerido: precioSugerido,
                         visibilidad: 'privada' // por defecto
                     })
                     .eq('id', recetaId);
@@ -410,9 +434,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     .from('recetas')
                     .insert([{
                         user_id: user.id,
-                        nombre: nombre,
-                        pasos: pasos,
-                        margen_ganancia: margen,
+                        nombre: nombreFormateado,
+                        categoria: categoriaSeleccionada,
+                        imagen: imagenFinal,
+                        descripcion: descripcionTexto,
+                        pasos: pasosProcedimiento,
+                        margen: margenValor,       // Corregido
+                        costo_total: costoTotal,
+                        precio_sugerido: precioSugerido,
                         visibilidad: 'privada' // por defecto
                     }])
                     .select()
@@ -728,7 +757,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         user_id: userId,
                         nombre: recetaInfo.nombre,
                         pasos: recetaInfo.pasos,
-                        margen_ganancia: recetaInfo.margen_ganancia,
+                        margen: recetaInfo.margen_ganancia, // Corregido
                         visibilidad: recetaInfo.visibilidad
                     }])
                     .select()
