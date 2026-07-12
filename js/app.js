@@ -3,28 +3,49 @@
 // Inicialización de Supabase con la clave de producción
 const supabaseUrl = 'https://bywdlwnsziivnbhbfcpm.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5d2Rsd25zemlpdm5iaGJmY3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4ODA0ODQsImV4cCI6MjA5OTQ1NjQ4NH0.MIPmdlOnrcNJn8YT92za4qHS-NYDIyFEP6_sSNuhBPE';
-window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+window.supabase = supabaseClient;
 
 // Listener de sesión nativo para el enrutamiento de vistas
-window.supabase.auth.onAuthStateChange((event, session) => {
+window.supabase.auth.onAuthStateChange(async (event, session) => {
     const authContainer = document.getElementById("auth-container");
     const navbarApp = document.getElementById("navbar-app");
     const mainContainer = document.getElementById("main-container");
 
     if (session) {
-        // Usuario autenticado
+        // Guardar token/usuario activo globalmente
+        window.sessionToken = session.access_token;
+        window.currentUser = session.user;
+
+        // Ocultar Auth y mostrar Dashboard
         if (authContainer) authContainer.classList.add("hidden");
         if (navbarApp) navbarApp.classList.remove("hidden");
         if (mainContainer) mainContainer.classList.remove("hidden");
+
+        // Carga de datos en cascada (Ingredientes -> Recetas)
+        try {
+            if (typeof window.cargarIngredientesDesdeSupabase === 'function') {
+                await window.cargarIngredientesDesdeSupabase();
+            }
+            if (typeof window.cargarRecetasDesdeSupabase === 'function') {
+                await window.cargarRecetasDesdeSupabase();
+            }
+        } catch (err) {
+            console.error("Error al cargar datos de la base de datos:", err);
+        }
     } else {
-        // Usuario no autenticado
+        // Limpiar sesión activa
+        window.sessionToken = null;
+        window.currentUser = null;
+
+        // Ocultar Dashboard y mostrar Auth
         if (authContainer) authContainer.classList.remove("hidden");
         if (navbarApp) navbarApp.classList.add("hidden");
         if (mainContainer) mainContainer.classList.add("hidden");
     }
 });
 
-// 1. Estado Global - Recuperación inicial desde localStorage
+// 1. Estado Global - Recuperación inicial desde localStorage (fallback inicial vacío)
 try {
     window.sweetcostIngredientes = JSON.parse(localStorage.getItem('sweetcost_ingredientes')) || [];
     window.sweetcostRecetas = JSON.parse(localStorage.getItem('sweetcost_recetas')) || [];

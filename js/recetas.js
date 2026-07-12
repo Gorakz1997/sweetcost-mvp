@@ -330,34 +330,15 @@ document.addEventListener("DOMContentLoaded", () => {
         window.renderizarTablaReceta();
         window.calcularCostos();
     };
-
     // --- Sincronización con Supabase (SELECT Join) ---
     window.cargarRecetasDesdeSupabase = async () => {
         try {
             if (!window.supabase) return;
 
-            // Mapeo uniendo relaciones en Supabase
+            // Mapeo uniendo relaciones en Supabase de forma directa
             const { data, error } = await window.supabase
                 .from('recetas')
-                .select(`
-                    id,
-                    user_id,
-                    nombre,
-                    pasos,
-                    margen_ganancia,
-                    visibilidad,
-                    created_at,
-                    receta_ingredientes (
-                        cantidad,
-                        ingredientes (
-                            id,
-                            nombre,
-                            precio_paquete,
-                            cantidad_paquete,
-                            unidad_medida
-                        )
-                    )
-                `)
+                .select('*, receta_ingredientes(*, ingredientes(*))')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -365,6 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
             window.sweetcostRecetas = (data || []).map(item => {
                 const mappedIngredientes = (item.receta_ingredientes || []).map(ri => {
                     const ing = ri.ingredientes;
+                    if (!ing) return null;
                     const precioUnitario = parseFloat(ing.precio_paquete) / parseFloat(ing.cantidad_paquete);
                     return {
                         id: ing.id,
@@ -374,7 +356,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         cantidadReceta: parseFloat(ri.cantidad), // cantidad convertida en base
                         unidadReceta: ing.unidad_medida // desplegado en unidad base
                     };
-                });
+                }).filter(Boolean);
 
                 return {
                     id: item.id,
@@ -437,7 +419,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (deleteRelationsError) throw deleteRelationsError;
             } else {
-                const { data: insertData, error: insertError } = await window.supabase
+                const { data: recetaCreada, error: insertError } = await window.supabase
                     .from('recetas')
                     .insert([{
                         user_id: user.id,
@@ -446,10 +428,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         margen_ganancia: margen,
                         visibilidad: 'privada' // por defecto
                     }])
-                    .select();
+                    .select()
+                    .single();
 
                 if (insertError) throw insertError;
-                recetaId = insertData[0].id;
+                recetaId = recetaCreada.id;
             }
 
             // PASO B: Insertar relaciones de ingredientes en la tabla intermedia 'receta_ingredientes'

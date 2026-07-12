@@ -354,34 +354,30 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    // Borrado físico de ingrediente
-    window.eliminarIngrediente = (id) => {
+    // Borrado físico de ingrediente con confirmación nativa
+    window.eliminarIngrediente = async (id) => {
         const ingrediente = window.sweetcostIngredientes.find(i => i.id === id);
         if (!ingrediente) return;
 
-        window.mostrarConfirmacion(
-            "Eliminar Ingrediente",
-            `¿Deseas eliminar el siguiente ingrediente: ${ingrediente.nombre}?`,
-            () => {
-                // Verificar si el ingrediente está en uso en alguna receta cargada en memoria
-                const recetasConIngrediente = (window.sweetcostRecetas || []).filter(receta => 
-                    receta.ingredientes.some(ing => ing.id === id)
-                );
-
-                if (recetasConIngrediente.length > 0) {
-                    const nombresRecetas = recetasConIngrediente.map(r => r.nombre).join(", ");
-                    window.mostrarConfirmacion(
-                        "Ingrediente en Uso",
-                        `El ingrediente "${ingrediente.nombre}" está en uso en las siguientes recetas: ${nombresRecetas}.\n¿Estás seguro de que deseas eliminarlo? Esto afectará los cálculos de costos y se eliminará en cascada en Supabase.`,
-                        () => {
-                            procederAEliminarIngrediente(id);
-                        }
-                    );
-                } else {
-                    procederAEliminarIngrediente(id);
-                }
-            }
+        // Verificar si el ingrediente está en uso en alguna receta cargada en memoria
+        const recetasConIngrediente = (window.sweetcostRecetas || []).filter(receta => 
+            receta.ingredientes.some(ing => ing.id === id)
         );
+
+        let confirmarBorrado = false;
+
+        if (recetasConIngrediente.length > 0) {
+            const nombresRecetas = recetasConIngrediente.map(r => r.nombre).join(", ");
+            confirmarBorrado = confirm(
+                `El ingrediente "${ingrediente.nombre}" está en uso en las siguientes recetas: ${nombresRecetas}.\n¿Estás seguro de que deseas eliminarlo? Esto afectará los cálculos de costos y se borrará la relación en Supabase.`
+            );
+        } else {
+            confirmarBorrado = confirm(`¿Deseas eliminar el ingrediente "${ingrediente.nombre}"?`);
+        }
+
+        if (confirmarBorrado) {
+            await procederAEliminarIngrediente(id);
+        }
     };
 
     async function procederAEliminarIngrediente(id) {
