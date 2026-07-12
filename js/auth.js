@@ -117,14 +117,31 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Funcionalidad de Mostrar/Ocultar Contraseña
+    // Funcionalidad de Mostrar/Ocultar Contraseña (Iconos SVG en lugar de Emotes)
     const btnTogglePassword = document.getElementById("btn-toggle-password-visibility");
     if (btnTogglePassword && passwordInput) {
+        const eyeOpenSVG = `
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6 text-black select-none pointer-events-none">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+        `;
+        const eyeClosedSVG = `
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6 text-black select-none pointer-events-none">
+                <path stroke-linecap="round" d="M4 10a10.13 10.13 0 0 0 16 0" />
+                <path stroke-linecap="round" d="M12 15v3" />
+                <path stroke-linecap="round" d="M7 13l-1.5 2.5" />
+                <path stroke-linecap="round" d="M17 13l1.5 2.5" />
+                <path stroke-linecap="round" d="M4.5 10.5L3 12.5" />
+                <path stroke-linecap="round" d="M19.5 10.5l1.5 2" />
+            </svg>
+        `;
+
         btnTogglePassword.addEventListener("click", (e) => {
             e.preventDefault(); // Evitar propagaciones secundarias
             const isPassword = passwordInput.type === "password";
             passwordInput.type = isPassword ? "text" : "password";
-            btnTogglePassword.textContent = isPassword ? "🙈" : "👁️";
+            btnTogglePassword.innerHTML = isPassword ? eyeClosedSVG : eyeOpenSVG;
         });
     }
 });
