@@ -24,6 +24,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const spanPrecioSugerido = document.getElementById("receta-precio-sugerido");
     const inputUnidadReceta = document.getElementById("receta-unidad-ingrediente");
 
+    // Nuevas referencias para Descripción, Pasos y Vista Detalle
+    const inputDescripcion = document.getElementById("receta-descripcion");
+    const inputPasos = document.getElementById("receta-pasos");
+    const vistaDetalle = document.getElementById("vista-detalle-receta");
+    const btnVolverDetalle = document.getElementById("btn-volver-detalle-recetas");
+    const detalleImagen = document.getElementById("detalle-receta-imagen");
+    const detalleNombre = document.getElementById("detalle-receta-nombre");
+    const detalleDescripcion = document.getElementById("detalle-receta-descripcion");
+    const detalleIngredientes = document.getElementById("detalle-receta-ingredientes");
+    const detallePasos = document.getElementById("detalle-receta-pasos");
+
     // Variable temporal para almacenar la imagen en Base64
     window.recetaImagenBase64 = null;
 
@@ -51,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalInputNombre = document.getElementById("modal-input-nombre");
     const modalInputPrecio = document.getElementById("modal-input-precio");
     const modalSelectUnidad = document.getElementById("modal-select-unidad");
+    const modalInputCantidadCompra = document.getElementById("modal-input-cantidad-compra");
     const btnGuardarReceta = document.getElementById("btn-guardar-receta");
     const gridRecetas = document.getElementById("grid-recetas");
 
@@ -116,17 +128,21 @@ document.addEventListener("DOMContentLoaded", () => {
     formModal.addEventListener("submit", (e) => {
         e.preventDefault();
         try {
-            const nombre = modalInputNombre.value.trim();
-            const precio = parseFloat(modalInputPrecio.value);
+            const nombre = window.capitalizarTexto(modalInputNombre.value.trim());
+            const precioTotal = parseFloat(modalInputPrecio.value);
             const unidad = modalSelectUnidad.value;
+            const cantidadCompra = parseFloat(modalInputCantidadCompra.value);
 
-            if (nombre && !isNaN(precio)) {
+            if (nombre && !isNaN(precioTotal) && !isNaN(cantidadCompra) && cantidadCompra > 0) {
+                const precioUnitario = precioTotal / cantidadCompra;
                 // Añadir al array global
                 const nuevoIngrediente = {
                     id: 'ing_' + Date.now(),
                     nombre: nombre,
-                    precio: precio,
-                    unidad: unidad
+                    cantidadCompra: cantidadCompra,
+                    precioCompra: precioTotal,
+                    unidad: unidad,
+                    precio: precioUnitario
                 };
                 window.sweetcostIngredientes.push(nuevoIngrediente);
                 localStorage.setItem('sweetcost_ingredientes', JSON.stringify(window.sweetcostIngredientes));
@@ -161,7 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.sweetcostIngredientes.forEach(ing => {
             const option = document.createElement("option");
             option.value = ing.id;
-            option.textContent = `${ing.nombre} ($${ing.precio}/${ing.unidad})`;
+            option.textContent = `${ing.nombre} ($${ing.precio.toFixed(2)}/${ing.unidad})`;
             selectIngrediente.appendChild(option);
         });
     };
@@ -195,8 +211,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             }
 
-            // Limpiar input y re-calcular
+            // Limpiar input y selector, y re-calcular
             inputCantidad.value = "";
+            selectIngrediente.value = "";
             window.renderizarTablaReceta();
             window.calcularCostos();
         } else {
@@ -229,14 +246,17 @@ document.addEventListener("DOMContentLoaded", () => {
             const subtotal = precioActual * cantidadBase;
 
             const tr = document.createElement("tr");
-            tr.className = "border-b-4 border-[var(--border-color)] bg-white";
+            tr.className = "border-b-4 border-[var(--border-color)] bg-white hover:bg-[var(--surface-container-low)] transition-colors";
             tr.innerHTML = `
-                <td class="p-2 border-r-4 border-[var(--border-color)] font-bold">${ing.nombre}</td>
-                <td class="p-2 border-r-4 border-[var(--border-color)]">
-                    <input type="number" inputmode="decimal" class="brutal-input w-24 p-1 text-sm inline-block" step="0.01" value="${ing.cantidadReceta}" onchange="actualizarCantidadIngrediente(${index}, this.value)"> ${ing.unidadReceta}
+                <td class="p-3 md:p-4 border-r-4 border-[var(--border-color)] font-bold">${ing.nombre}</td>
+                <td class="p-3 md:p-4 border-r-4 border-[var(--border-color)]">
+                    <div class="flex items-center gap-1">
+                        <input type="number" inputmode="decimal" class="brutal-input w-20 p-1 text-sm text-center inline-block" step="0.01" value="${ing.cantidadReceta}" onchange="actualizarCantidadIngrediente(${index}, this.value)">
+                        <span class="font-bold">${ing.unidadReceta}</span>
+                    </div>
                 </td>
-                <td class="p-2 border-r-4 border-[var(--border-color)]">$${subtotal.toFixed(2)}</td>
-                <td class="p-2 text-center">
+                <td class="p-3 md:p-4 border-r-4 border-[var(--border-color)] font-bold text-lg">$${subtotal.toFixed(2)}</td>
+                <td class="p-3 md:p-4 text-center">
                     <button class="brutal-btn w-11 h-11 flex items-center justify-center text-sm font-bold bg-[var(--error)] text-white mx-auto active:translate-y-0.5 transition-transform" onclick="quitarIngredienteReceta(${index})">X</button>
                 </td>
             `;
@@ -297,6 +317,8 @@ document.addEventListener("DOMContentLoaded", () => {
         inputMargen.value = "100";
         inputCantidad.value = "";
         selectIngrediente.value = "";
+        inputDescripcion.value = "";
+        inputPasos.value = "";
         window.ingredientesRecetaActual = [];
         window.renderizarTablaReceta();
         window.calcularCostos();
@@ -304,7 +326,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Guardar y Renderizar Recetas ---
     btnGuardarReceta.addEventListener("click", () => {
-        const nombre = inputNombreReceta.value.trim();
+        const nombre = window.capitalizarTexto(inputNombreReceta.value.trim());
         const margen = parseFloat(inputMargen.value) || 0;
         const imagen = window.recetaImagenBase64 || 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop'; // Imagen por defecto
 
@@ -314,6 +336,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const { costoTotal, precioSugerido } = window.calcularCostos();
+        const descripcion = inputDescripcion.value.trim();
+        const pasos = inputPasos.value.trim();
 
         const recetaData = {
             id: window.recetaEnEdicionId || 'rec_' + Date.now(),
@@ -322,7 +346,9 @@ document.addEventListener("DOMContentLoaded", () => {
             margen: margen,
             ingredientes: [...window.ingredientesRecetaActual],
             costoTotal: costoTotal,
-            precioSugerido: precioSugerido
+            precioSugerido: precioSugerido,
+            descripcion: descripcion,
+            pasos: pasos
         };
 
         if (window.recetaEnEdicionId) {
@@ -340,15 +366,44 @@ document.addEventListener("DOMContentLoaded", () => {
         vistaLista.classList.remove("hidden");
     });
 
-    window.renderizarGridRecetas = () => {
+    window.renderizarGridRecetas = (filtro = "") => {
         gridRecetas.innerHTML = "";
 
-        if (window.sweetcostRecetas.length === 0) {
-            gridRecetas.innerHTML = `<div class="col-span-full p-6 text-center font-bold text-gray-500 bg-white brutal-border">No tienes recetas creadas todavía.</div>`;
+        // Asegurar regresar al listado si el visor de detalle está activo o si se busca
+        if (filtro || !vistaDetalle.classList.contains("hidden")) {
+            vistaDetalle.classList.add("hidden");
+            vistaLista.classList.remove("hidden");
+        }
+
+        const pluralizarUnidad = (cantidad, unidad) => {
+            const u = unidad.toLowerCase();
+            if (cantidad === 1) {
+                if (u === 'gramos') return 'gramo';
+                if (u === 'unidades') return 'unidad';
+                if (u === 'litros') return 'litro';
+                return u;
+            } else {
+                if (u === 'gramo') return 'gramos';
+                if (u === 'unidad') return 'unidades';
+                if (u === 'litro') return 'litros';
+                return u;
+            }
+        };
+
+        let recetasAMostrar = window.sweetcostRecetas;
+        if (filtro) {
+            recetasAMostrar = window.sweetcostRecetas.filter(receta => 
+                receta.nombre.toLowerCase().includes(filtro)
+            );
+        }
+
+        if (recetasAMostrar.length === 0) {
+            const msj = filtro ? "No se encontraron recetas que coincidan con tu búsqueda." : "No tienes recetas creadas todavía.";
+            gridRecetas.innerHTML = `<div class="col-span-full p-6 text-center font-bold text-gray-500 bg-white brutal-border">${msj}</div>`;
             return;
         }
 
-        window.sweetcostRecetas.forEach(receta => {
+        recetasAMostrar.forEach(receta => {
             // Recalcular el costo basado en los precios actuales (por si cambiaron desde Ingredientes)
             let costoReal = 0;
 
@@ -365,7 +420,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const cantidadBase = convertirUnidad(cantReceta, unReceta, unidadBase);
                 costoReal += (precio * cantidadBase);
-                nombresIngredientes.push(`${cantReceta}${unReceta} ${ing.nombre}`);
+                const unidadFormateada = pluralizarUnidad(cantReceta, unReceta);
+                nombresIngredientes.push(`${ing.nombre}: ${cantReceta} ${unidadFormateada}`);
             });
 
             const precioSugeridoReal = costoReal * (1 + (receta.margen / 100));
@@ -375,14 +431,15 @@ document.addEventListener("DOMContentLoaded", () => {
             receta.precioSugerido = precioSugeridoReal;
 
             const listaPreview = nombresIngredientes.length > 0
-                ? `<div class="text-sm text-gray-600 mb-4 h-12 overflow-hidden truncate whitespace-normal">${nombresIngredientes.join(', ')}</div>`
-                : `<div class="text-sm text-gray-400 mb-4 h-12 italic">Sin ingredientes.</div>`;
+                ? `<div class="text-xs md:text-sm text-gray-600 mb-4 h-16 max-h-16 overflow-y-auto pr-1 block scrollbar-thin">${nombresIngredientes.join(', ')}</div>`
+                : `<div class="text-xs md:text-sm text-gray-400 mb-4 h-16 max-h-16 italic block">Sin ingredientes.</div>`;
 
             const article = document.createElement("article");
-            article.className = "brutal-card flex flex-col bg-white";
+            article.className = "brutal-card flex flex-col bg-white relative";
             article.innerHTML = `
                 <div class="h-48 bg-gray-300 border-b-4 border-[var(--border-color)] relative">
                     <img src="${receta.imagen}" alt="${receta.nombre}" class="w-full h-full object-cover">
+                    <button class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center brutal-border brutal-shadow bg-[var(--error)] text-white font-black hover:-translate-y-0.5 transition-transform" onclick="eliminarReceta('${receta.id}')" title="Eliminar receta">X</button>
                 </div>
                 <div class="p-5 flex-1 flex flex-col justify-between">
                     <div>
@@ -398,7 +455,10 @@ document.addEventListener("DOMContentLoaded", () => {
                             <span class="text-xl">$ ${precioSugeridoReal.toFixed(2)}</span>
                         </div>
                     </div>
-                    <button class="brutal-btn w-full py-2 hover:bg-gray-200 hover:text-[var(--on-background)] bg-white text-[var(--on-background)] transition-colors" onclick="editarReceta('${receta.id}')">Editar</button>
+                    <div class="flex gap-3">
+                        <button class="brutal-btn flex-1 py-2 bg-[var(--secondary-container)] text-[var(--on-secondary-container)] font-bold hover:bg-gray-200 hover:text-[var(--on-background)] transition-colors active:translate-y-0.5" onclick="verReceta('${receta.id}')">Ver</button>
+                        <button class="brutal-btn flex-1 py-2 hover:bg-gray-200 hover:text-[var(--on-background)] bg-white text-[var(--on-background)] transition-colors active:translate-y-0.5" onclick="editarReceta('${receta.id}')">Editar</button>
+                    </div>
                 </div>
             `;
             gridRecetas.appendChild(article);
@@ -411,6 +471,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         window.recetaEnEdicionId = id;
         inputNombreReceta.value = receta.nombre;
+        inputDescripcion.value = receta.descripcion || "";
+        inputPasos.value = receta.pasos || "";
         
         window.recetaImagenBase64 = receta.imagen;
         if (receta.imagen && receta.imagen !== 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop') {
@@ -445,6 +507,84 @@ document.addEventListener("DOMContentLoaded", () => {
         window.renderizarTablaReceta();
         window.calcularCostos();
     };
+
+    window.eliminarReceta = (id) => {
+        const receta = window.sweetcostRecetas.find(r => r.id === id);
+        if (!receta) return;
+
+        window.mostrarConfirmacion(
+            "Eliminar Receta",
+            `¿Deseas eliminar la siguiente receta: ${receta.nombre}?`,
+            () => {
+                window.sweetcostRecetas = window.sweetcostRecetas.filter(r => r.id !== id);
+                localStorage.setItem('sweetcost_recetas', JSON.stringify(window.sweetcostRecetas));
+                window.renderizarGridRecetas();
+            }
+        );
+    };
+
+    window.verReceta = (id) => {
+        const receta = window.sweetcostRecetas.find(r => r.id === id);
+        if (!receta) return;
+
+        // Pestañas / Vistas
+        vistaLista.classList.add("hidden");
+        vistaForm.classList.add("hidden");
+        vistaDetalle.classList.remove("hidden");
+
+        // Inyección de textos básicos
+        detalleNombre.textContent = receta.nombre;
+        detalleDescripcion.textContent = receta.descripcion || "Sin descripción disponible.";
+        
+        // Imagen con fallback
+        detalleImagen.src = receta.imagen || 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop';
+        detalleImagen.alt = receta.nombre;
+
+        // Renderizado de Ingredientes
+        detalleIngredientes.innerHTML = "";
+        
+        const pluralizarUnidad = (cantidad, unidad) => {
+            const u = unidad.toLowerCase();
+            if (cantidad === 1) {
+                if (u === 'gramos') return 'gramo';
+                if (u === 'unidades') return 'unidad';
+                if (u === 'litros') return 'litro';
+                return u;
+            } else {
+                if (u === 'gramo') return 'gramos';
+                if (u === 'unidad') return 'unidades';
+                if (u === 'litro') return 'litros';
+                return u;
+            }
+        };
+
+        if (receta.ingredientes.length === 0) {
+            detalleIngredientes.innerHTML = '<li class="text-gray-500 italic font-bold">Sin ingredientes agregados.</li>';
+        } else {
+            receta.ingredientes.forEach(ing => {
+                const ingredienteGlobal = window.sweetcostIngredientes.find(i => i.id === ing.id);
+                const cantReceta = ing.cantidadReceta !== undefined ? ing.cantidadReceta : ing.cantidad;
+                const unReceta = ing.unidadReceta !== undefined ? ing.unidadReceta : ing.unidad;
+                const unidadFormateada = pluralizarUnidad(cantReceta, unReceta);
+                
+                const li = document.createElement("li");
+                li.textContent = `${ing.nombre}: ${cantReceta} ${unidadFormateada}`;
+                detalleIngredientes.appendChild(li);
+            });
+        }
+
+        // Renderizado de Pasos
+        if (receta.pasos && receta.pasos.trim()) {
+            detallePasos.textContent = receta.pasos;
+        } else {
+            detallePasos.innerHTML = '<p class="text-gray-500 italic font-bold">Sin instrucciones de preparación.</p>';
+        }
+    };
+
+    btnVolverDetalle.addEventListener("click", () => {
+        vistaDetalle.classList.add("hidden");
+        vistaLista.classList.remove("hidden");
+    });
 
     // Render inicial
     window.renderizarGridRecetas();

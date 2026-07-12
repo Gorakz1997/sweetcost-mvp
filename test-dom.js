@@ -40,8 +40,10 @@ setTimeout(() => {
         
         const inputNombre = dom.window.document.getElementById("input-nombre-rapido");
         const inputPrecio = dom.window.document.getElementById("input-precio-rapido");
+        const inputCantidadCompra = dom.window.document.getElementById("input-cantidad-compra-rapida");
         inputNombre.value = "Test Harina";
         inputPrecio.value = "100";
+        inputCantidadCompra.value = "1";
         
         // Submit the form
         const submitEvent = new dom.window.Event('submit', { bubbles: true, cancelable: true });
@@ -49,9 +51,9 @@ setTimeout(() => {
         
         console.log("Ingredientes after:", dom.window.sweetcostIngredientes.length);
         
-        const tbody = dom.window.document.getElementById("tabla-ingredientes-body");
-        console.log("Table row count:", tbody.children.length);
-        console.log("Table HTML:", tbody.innerHTML.trim().substring(0, 100));
+        const grid = dom.window.document.getElementById("grid-ingredientes");
+        console.log("Grid child count:", grid ? grid.children.length : 0);
+        if (grid) console.log("Grid HTML:", grid.innerHTML.trim().substring(0, 100));
         
     } catch (e) {
         console.error("Error during test:", e);
