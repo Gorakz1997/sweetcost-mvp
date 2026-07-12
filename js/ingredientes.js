@@ -1,4 +1,5 @@
 // js/ingredientes.js
+// Gestión de Ingredientes con Persistencia en Supabase
 
 document.addEventListener("DOMContentLoaded", () => {
     const formCargaRapida = document.getElementById("form-carga-rapida");
@@ -10,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ID del ingrediente que se está editando de forma inline (null por defecto)
     window.editandoIngredienteId = null;
 
-    // Función para re-renderizar la tabla de ingredientes reales
+    // Función para re-renderizar la tabla de ingredientes
     window.renderizarTablaIngredientes = (filtro = "") => {
         const grid = document.getElementById("grid-ingredientes");
         const emptyState = document.getElementById("empty-ingredientes");
@@ -23,9 +24,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         targetContainer.innerHTML = ""; // Limpiar el contenido actual
 
-        let ingredientesAMostrar = window.sweetcostIngredientes;
+        let ingredientesAMostrar = window.sweetcostIngredientes || [];
         if (filtro) {
-            ingredientesAMostrar = window.sweetcostIngredientes.filter(ing => 
+            ingredientesAMostrar = ingredientesAMostrar.filter(ing => 
                 ing.nombre.toLowerCase().includes(filtro)
             );
         }
@@ -163,44 +164,93 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    // 3. Carga de Ingredientes (Panel lateral rápido)
-    formCargaRapida.addEventListener("submit", (e) => {
-        e.preventDefault();
+    // Función global para cargar ingredientes desde Supabase
+    window.cargarIngredientesDesdeSupabase = async () => {
         try {
-            const nombre = window.capitalizarTexto(inputNombre.value.trim());
-            const precioTotal = parseFloat(inputPrecio.value);
-            const unidad = selectUnidad.value;
-            const cantidadCompra = parseFloat(inputCantidadCompra.value);
+            if (!window.supabase) return;
+            const { data, error } = await window.supabase
+                .from('ingredientes')
+                .select('*')
+                .order('nombre', { ascending: true });
 
-            if (nombre && !isNaN(precioTotal) && !isNaN(cantidadCompra) && cantidadCompra > 0) {
-                const precioUnitario = precioTotal / cantidadCompra;
-                // Generar ID único
-                const nuevoIngrediente = {
-                    id: 'ing_' + Date.now(),
-                    nombre: nombre,
-                    cantidadCompra: cantidadCompra,
-                    precioCompra: precioTotal,
-                    unidad: unidad,
-                    precio: precioUnitario
-                };
+            if (error) throw error;
 
-                // Añadir al estado global
-                window.sweetcostIngredientes.push(nuevoIngrediente);
-                localStorage.setItem('sweetcost_ingredientes', JSON.stringify(window.sweetcostIngredientes));
+            window.sweetcostIngredientes = (data || []).map(item => ({
+                id: item.id,
+                nombre: item.nombre,
+                cantidadCompra: parseFloat(item.cantidad_paquete),
+                precioCompra: parseFloat(item.precio_paquete),
+                unidad: item.unidad_medida,
+                precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete) // LÓGICA DEL PRECIO UNITARIO
+            }));
 
-                // Limpiar formulario
-                formCargaRapida.reset();
-
-                // Refrescar vistas
-                window.renderizarTablaIngredientes();
-                if (typeof window.poblarSelectIngredientes === 'function') {
-                    window.poblarSelectIngredientes();
-                }
+            window.renderizarTablaIngredientes();
+            if (typeof window.poblarSelectIngredientes === 'function') {
+                window.poblarSelectIngredientes();
             }
         } catch (err) {
-            console.error("Error al cargar ingrediente:", err);
+            console.error("Error al cargar ingredientes desde Supabase:", err);
         }
-    });
+    };
+
+    // Guardado de Ingredientes (Panel de Carga Rápida)
+    if (formCargaRapida) {
+        formCargaRapida.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const originalText = document.getElementById("btn-guardar-rapido").textContent;
+            try {
+                const nombre = window.capitalizarTexto(inputNombre.value.trim());
+                const precioTotal = parseFloat(inputPrecio.value);
+                const unidad = selectUnidad.value;
+                const cantidadCompra = parseFloat(inputCantidadCompra.value);
+
+                if (nombre && !isNaN(precioTotal) && !isNaN(cantidadCompra) && cantidadCompra > 0) {
+                    document.getElementById("btn-guardar-rapido").disabled = true;
+                    document.getElementById("btn-guardar-rapido").textContent = "Guardando...";
+
+                    const { data: { user }, error: userError } = await window.supabase.auth.getUser();
+                    if (userError || !user) throw new Error("Usuario no autenticado en Supabase.");
+
+                    const { data, error } = await window.supabase
+                        .from('ingredientes')
+                        .insert([{
+                            user_id: user.id,
+                            nombre: nombre,
+                            precio_paquete: precioTotal,
+                            cantidad_paquete: cantidadCompra,
+                            unidad_medida: unidad
+                        }])
+                        .select();
+
+                    if (error) throw error;
+
+                    const item = data[0];
+                    const nuevoIngrediente = {
+                        id: item.id,
+                        nombre: item.nombre,
+                        cantidadCompra: parseFloat(item.cantidad_paquete),
+                        precioCompra: parseFloat(item.precio_paquete),
+                        unidad: item.unidad_medida,
+                        precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
+                    };
+
+                    window.sweetcostIngredientes.push(nuevoIngrediente);
+                    formCargaRapida.reset();
+
+                    window.renderizarTablaIngredientes();
+                    if (typeof window.poblarSelectIngredientes === 'function') {
+                        window.poblarSelectIngredientes();
+                    }
+                }
+            } catch (err) {
+                console.error("Error al guardar ingrediente:", err);
+                alert("Error al guardar ingrediente en Supabase: " + (err.message || err));
+            } finally {
+                document.getElementById("btn-guardar-rapido").disabled = false;
+                document.getElementById("btn-guardar-rapido").textContent = originalText;
+            }
+        });
+    }
 
     // Activar edición de precio inline
     window.activarEdicionPrecioInline = (id) => {
@@ -214,8 +264,8 @@ document.addEventListener("DOMContentLoaded", () => {
         window.renderizarTablaIngredientes();
     };
 
-    // Guardar edición completa inline sin alertas emergentes
-    window.guardarEdicionIngredienteInline = (id) => {
+    // Guardar edición completa inline
+    window.guardarEdicionIngredienteInline = async (id) => {
         const inputNombre = document.getElementById(`input-edit-nombre-${id}`);
         const inputCantidadCompra = document.getElementById(`input-edit-cantidad-compra-${id}`);
         const inputPrecioCompra = document.getElementById(`input-edit-precio-compra-${id}`);
@@ -260,35 +310,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (tieneError) return;
 
-        const ingIndex = window.sweetcostIngredientes.findIndex(i => i.id === id);
-        if (ingIndex !== -1) {
-            window.sweetcostIngredientes[ingIndex].nombre = nuevoNombre;
-            window.sweetcostIngredientes[ingIndex].cantidadCompra = nuevaCantidadCompra;
-            window.sweetcostIngredientes[ingIndex].precioCompra = nuevoPrecioCompra;
-            window.sweetcostIngredientes[ingIndex].unidad = nuevaUnidad;
-            window.sweetcostIngredientes[ingIndex].precio = nuevoPrecioCompra / nuevaCantidadCompra;
-            
-            localStorage.setItem('sweetcost_ingredientes', JSON.stringify(window.sweetcostIngredientes));
-            window.editandoIngredienteId = null;
-            window.renderizarTablaIngredientes();
+        try {
+            const { error } = await window.supabase
+                .from('ingredientes')
+                .update({
+                    nombre: nuevoNombre,
+                    cantidad_paquete: nuevaCantidadCompra,
+                    precio_paquete: nuevoPrecioCompra,
+                    unidad_medida: nuevaUnidad
+                })
+                .eq('id', id);
 
-            if (typeof window.poblarSelectIngredientes === 'function') {
-                window.poblarSelectIngredientes();
-            }
+            if (error) throw error;
 
-            // Actualizar costos y recetas automáticamente
-            if (typeof window.renderizarGridRecetas === 'function') {
-                window.renderizarGridRecetas();
-            }
+            const ingIndex = window.sweetcostIngredientes.findIndex(i => i.id === id);
+            if (ingIndex !== -1) {
+                window.sweetcostIngredientes[ingIndex].nombre = nuevoNombre;
+                window.sweetcostIngredientes[ingIndex].cantidadCompra = nuevaCantidadCompra;
+                window.sweetcostIngredientes[ingIndex].precioCompra = nuevoPrecioCompra;
+                window.sweetcostIngredientes[ingIndex].unidad = nuevaUnidad;
+                window.sweetcostIngredientes[ingIndex].precio = nuevoPrecioCompra / nuevaCantidadCompra;
+                
+                window.editandoIngredienteId = null;
+                window.renderizarTablaIngredientes();
 
-            if (typeof window.renderizarTablaReceta === 'function') {
-                window.renderizarTablaReceta();
-                window.calcularCostos();
+                if (typeof window.poblarSelectIngredientes === 'function') {
+                    window.poblarSelectIngredientes();
+                }
+
+                // Recalcular costos
+                if (typeof window.renderizarGridRecetas === 'function') {
+                    window.renderizarGridRecetas();
+                }
+
+                if (typeof window.renderizarTablaReceta === 'function') {
+                    window.renderizarTablaReceta();
+                    window.calcularCostos();
+                }
             }
+        } catch (err) {
+            console.error("Error al actualizar ingrediente:", err);
+            alert("Error al actualizar ingrediente: " + (err.message || err));
         }
     };
 
-    // Función global para borrar ingrediente
+    // Borrado físico de ingrediente
     window.eliminarIngrediente = (id) => {
         const ingrediente = window.sweetcostIngredientes.find(i => i.id === id);
         if (!ingrediente) return;
@@ -297,8 +363,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "Eliminar Ingrediente",
             `¿Deseas eliminar el siguiente ingrediente: ${ingrediente.nombre}?`,
             () => {
-                // Verificar si el ingrediente está en uso en alguna receta guardada
-                const recetasConIngrediente = window.sweetcostRecetas.filter(receta => 
+                // Verificar si el ingrediente está en uso en alguna receta cargada en memoria
+                const recetasConIngrediente = (window.sweetcostRecetas || []).filter(receta => 
                     receta.ingredientes.some(ing => ing.id === id)
                 );
 
@@ -306,7 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const nombresRecetas = recetasConIngrediente.map(r => r.nombre).join(", ");
                     window.mostrarConfirmacion(
                         "Ingrediente en Uso",
-                        `El ingrediente "${ingrediente.nombre}" está en uso en las siguientes recetas: ${nombresRecetas}.\n¿Estás seguro de que deseas eliminarlo? Esto puede afectar los cálculos de costos.`,
+                        `El ingrediente "${ingrediente.nombre}" está en uso en las siguientes recetas: ${nombresRecetas}.\n¿Estás seguro de que deseas eliminarlo? Esto afectará los cálculos de costos y se eliminará en cascada en Supabase.`,
                         () => {
                             procederAEliminarIngrediente(id);
                         }
@@ -318,22 +384,37 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     };
 
-    function procederAEliminarIngrediente(id) {
-        window.sweetcostIngredientes = window.sweetcostIngredientes.filter(ing => ing.id !== id);
-        localStorage.setItem('sweetcost_ingredientes', JSON.stringify(window.sweetcostIngredientes));
-        window.renderizarTablaIngredientes();
+    async function procederAEliminarIngrediente(id) {
+        try {
+            const { error } = await window.supabase
+                .from('ingredientes')
+                .delete()
+                .eq('id', id);
 
-        // Si la vista de recetas está abierta, actualizar su selector
-        if (typeof window.poblarSelectIngredientes === 'function') {
-            window.poblarSelectIngredientes();
-        }
+            if (error) throw error;
 
-        // Refrescar el listado de recetas para reflejar el cambio en los costos
-        if (typeof window.renderizarGridRecetas === 'function') {
-            window.renderizarGridRecetas();
+            window.sweetcostIngredientes = window.sweetcostIngredientes.filter(ing => ing.id !== id);
+            window.renderizarTablaIngredientes();
+
+            if (typeof window.poblarSelectIngredientes === 'function') {
+                window.poblarSelectIngredientes();
+            }
+
+            if (typeof window.renderizarGridRecetas === 'function') {
+                window.renderizarGridRecetas();
+            }
+        } catch (err) {
+            console.error("Error al eliminar ingrediente:", err);
+            alert("Error al eliminar ingrediente: " + (err.message || err));
         }
     }
 
-    // Renderizado inicial
-    window.renderizarTablaIngredientes();
+    // Gatillar la carga inicial si la sesión de Supabase ya está lista
+    if (window.supabase) {
+        window.supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                window.cargarIngredientesDesdeSupabase();
+            }
+        });
+    }
 });

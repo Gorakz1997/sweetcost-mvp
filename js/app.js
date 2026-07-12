@@ -1,5 +1,29 @@
 // js/app.js
 
+// Inicialización de Supabase con la clave de producción
+const supabaseUrl = 'https://bywdlwnsziivnbhbfcpm.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5d2Rsd25zemlpdm5iaGJmY3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4ODA0ODQsImV4cCI6MjA5OTQ1NjQ4NH0.MIPmdlOnrcNJn8YT92za4qHS-NYDIyFEP6_sSNuhBPE';
+window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+// Listener de sesión nativo para el enrutamiento de vistas
+window.supabase.auth.onAuthStateChange((event, session) => {
+    const authContainer = document.getElementById("auth-container");
+    const navbarApp = document.getElementById("navbar-app");
+    const mainContainer = document.getElementById("main-container");
+
+    if (session) {
+        // Usuario autenticado
+        if (authContainer) authContainer.classList.add("hidden");
+        if (navbarApp) navbarApp.classList.remove("hidden");
+        if (mainContainer) mainContainer.classList.remove("hidden");
+    } else {
+        // Usuario no autenticado
+        if (authContainer) authContainer.classList.remove("hidden");
+        if (navbarApp) navbarApp.classList.add("hidden");
+        if (mainContainer) mainContainer.classList.add("hidden");
+    }
+});
+
 // 1. Estado Global - Recuperación inicial desde localStorage
 try {
     window.sweetcostIngredientes = JSON.parse(localStorage.getItem('sweetcost_ingredientes')) || [];

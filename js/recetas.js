@@ -1,4 +1,5 @@
 // js/recetas.js
+// Gestión de Recetas con Persistencia Relacional en Supabase
 
 document.addEventListener("DOMContentLoaded", () => {
     // Referencias del DOM para vistas de Recetas
@@ -35,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const detalleIngredientes = document.getElementById("detalle-receta-ingredientes");
     const detallePasos = document.getElementById("detalle-receta-pasos");
 
-    // Variable temporal para almacenar la imagen en Base64
+    // Variable temporal para almacenar la imagen en Base64 (UI local)
     window.recetaImagenBase64 = null;
 
     // Función de conversión de unidades
@@ -55,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return cantidad; // No convertible, retornar original
     };
 
-    // Referencias Modal
+    // Referencias Modal Ingrediente
     const modal = document.getElementById("modal-ingrediente");
     const btnCloseModal = document.getElementById("btn-close-modal");
     const formModal = document.getElementById("form-modal-ingrediente");
@@ -115,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnClearImagen.classList.add("hidden");
     });
 
-    // --- Funcionalidad de la Ventana Modal ---
+    // --- Funcionalidad de la Ventana Modal (Ingrediente rápido) ---
     btnOpenModal.addEventListener("click", (e) => {
         e.preventDefault();
         modal.classList.remove("hidden");
@@ -125,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.classList.add("hidden");
     });
 
-    formModal.addEventListener("submit", (e) => {
+    formModal.addEventListener("submit", async (e) => {
         e.preventDefault();
         try {
             const nombre = window.capitalizarTexto(modalInputNombre.value.trim());
@@ -134,20 +135,35 @@ document.addEventListener("DOMContentLoaded", () => {
             const cantidadCompra = parseFloat(modalInputCantidadCompra.value);
 
             if (nombre && !isNaN(precioTotal) && !isNaN(cantidadCompra) && cantidadCompra > 0) {
-                const precioUnitario = precioTotal / cantidadCompra;
-                // Añadir al array global
-                const nuevoIngrediente = {
-                    id: 'ing_' + Date.now(),
-                    nombre: nombre,
-                    cantidadCompra: cantidadCompra,
-                    precioCompra: precioTotal,
-                    unidad: unidad,
-                    precio: precioUnitario
-                };
-                window.sweetcostIngredientes.push(nuevoIngrediente);
-                localStorage.setItem('sweetcost_ingredientes', JSON.stringify(window.sweetcostIngredientes));
+                const { data: { user }, error: userError } = await window.supabase.auth.getUser();
+                if (userError || !user) throw new Error("Usuario no autenticado.");
 
-                // Actualizar tabla global de ingredientes y selector de la receta
+                const { data, error } = await window.supabase
+                    .from('ingredientes')
+                    .insert([{
+                        user_id: user.id,
+                        nombre: nombre,
+                        precio_paquete: precioTotal,
+                        cantidad_paquete: cantidadCompra,
+                        unidad_medida: unidad
+                    }])
+                    .select();
+
+                if (error) throw error;
+
+                const item = data[0];
+                const nuevoIngrediente = {
+                    id: item.id,
+                    nombre: item.nombre,
+                    cantidadCompra: parseFloat(item.cantidad_paquete),
+                    precioCompra: parseFloat(item.precio_paquete),
+                    unidad: item.unidad_medida,
+                    precio: parseFloat(item.precio_paquete) / parseFloat(item.cantidad_paquete)
+                };
+
+                window.sweetcostIngredientes.push(nuevoIngrediente);
+
+                // Actualizar tablas y selectores
                 if (typeof window.renderizarTablaIngredientes === 'function') {
                     window.renderizarTablaIngredientes();
                 }
@@ -159,22 +175,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Limpiar y cerrar modal
                 formModal.reset();
                 modal.classList.add("hidden");
-
-                // Refrescar vistas
-                if (typeof window.renderizarTablaIngredientes === 'function') {
-                    window.renderizarTablaIngredientes();
-                }
-                window.poblarSelectIngredientes();
             }
         } catch (err) {
-            console.error("Error al guardar desde modal:", err);
+            console.error("Error al guardar desde el modal:", err);
+            alert("Error al guardar ingrediente: " + (err.message || err));
         }
     });
 
     // --- Lógica del Selector y Adición de Ingredientes a la Receta ---
     window.poblarSelectIngredientes = () => {
         selectIngrediente.innerHTML = '<option value="">-- Selecciona un Ingrediente --</option>';
-        window.sweetcostIngredientes.forEach(ing => {
+        (window.sweetcostIngredientes || []).forEach(ing => {
             const option = document.createElement("option");
             option.value = ing.id;
             option.textContent = `${ing.nombre} ($${ing.precio.toFixed(2)}/${ing.unidad})`;
@@ -236,7 +247,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         window.ingredientesRecetaActual.forEach((ing, index) => {
-            // Actualizar el subtotal con el precio más reciente del estado global (por si fue modificado)
             const ingredienteGlobal = window.sweetcostIngredientes.find(i => i.id === ing.id);
             const precioActual = ingredienteGlobal ? ingredienteGlobal.precio : ing.precio;
             const unidadBase = ingredienteGlobal ? ingredienteGlobal.unidad : ing.unidad;
@@ -271,7 +281,6 @@ document.addEventListener("DOMContentLoaded", () => {
             window.renderizarTablaReceta();
             window.calcularCostos();
         } else {
-            // Revertir a visual si es inválido
             window.renderizarTablaReceta();
         }
     };
@@ -284,7 +293,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Cálculos Matemáticos ---
     window.calcularCostos = () => {
-        // Costo Total = Suma de (Cantidad * Precio Unitario Actualizado)
         const costoTotal = window.ingredientesRecetaActual.reduce((total, ing) => {
             const ingredienteGlobal = window.sweetcostIngredientes.find(i => i.id === ing.id);
             const precio = ingredienteGlobal ? ingredienteGlobal.precio : ing.precio;
@@ -295,7 +303,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 0);
         spanCostoTotal.textContent = costoTotal.toFixed(2);
 
-        // Precio Final Sugerido
         const margen = parseFloat(inputMargen.value) || 0;
         const precioSugerido = costoTotal * (1 + (margen / 100));
         spanPrecioSugerido.textContent = precioSugerido.toFixed(2);
@@ -303,7 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return { costoTotal, precioSugerido };
     };
 
-    // Recalcular instantáneamente si se modifica el margen
+    // Recalcular instantáneamente al cambiar el margen
     inputMargen.addEventListener("change", window.calcularCostos);
 
     window.limpiarFormularioReceta = () => {
@@ -324,52 +331,167 @@ document.addEventListener("DOMContentLoaded", () => {
         window.calcularCostos();
     };
 
-    // --- Guardar y Renderizar Recetas ---
-    btnGuardarReceta.addEventListener("click", () => {
+    // --- Sincronización con Supabase (SELECT Join) ---
+    window.cargarRecetasDesdeSupabase = async () => {
+        try {
+            if (!window.supabase) return;
+
+            // Mapeo uniendo relaciones en Supabase
+            const { data, error } = await window.supabase
+                .from('recetas')
+                .select(`
+                    id,
+                    user_id,
+                    nombre,
+                    pasos,
+                    margen_ganancia,
+                    visibilidad,
+                    created_at,
+                    receta_ingredientes (
+                        cantidad,
+                        ingredientes (
+                            id,
+                            nombre,
+                            precio_paquete,
+                            cantidad_paquete,
+                            unidad_medida
+                        )
+                    )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            window.sweetcostRecetas = (data || []).map(item => {
+                const mappedIngredientes = (item.receta_ingredientes || []).map(ri => {
+                    const ing = ri.ingredientes;
+                    const precioUnitario = parseFloat(ing.precio_paquete) / parseFloat(ing.cantidad_paquete);
+                    return {
+                        id: ing.id,
+                        nombre: ing.nombre,
+                        precio: precioUnitario,
+                        unidad: ing.unidad_medida, // unidad base
+                        cantidadReceta: parseFloat(ri.cantidad), // cantidad convertida en base
+                        unidadReceta: ing.unidad_medida // desplegado en unidad base
+                    };
+                });
+
+                return {
+                    id: item.id,
+                    nombre: item.nombre,
+                    imagen: 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop', // default fallback image
+                    margen: parseFloat(item.margen_ganancia),
+                    ingredientes: mappedIngredientes,
+                    descripcion: "",
+                    pasos: item.pasos || "",
+                    visibilidad: item.visibilidad
+                };
+            });
+
+            window.renderizarGridRecetas();
+        } catch (err) {
+            console.error("Error al cargar recetas desde Supabase:", err);
+        }
+    };
+
+    // --- Guardar Receta (Transacción lógica de 2 pasos) ---
+    btnGuardarReceta.addEventListener("click", async () => {
         const nombre = window.capitalizarTexto(inputNombreReceta.value.trim());
         const margen = parseFloat(inputMargen.value) || 0;
-        const imagen = window.recetaImagenBase64 || 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop'; // Imagen por defecto
 
         if (!nombre) {
             alert("El nombre de la receta es obligatorio.");
             return;
         }
 
-        const { costoTotal, precioSugerido } = window.calcularCostos();
-        const descripcion = inputDescripcion.value.trim();
         const pasos = inputPasos.value.trim();
 
-        const recetaData = {
-            id: window.recetaEnEdicionId || 'rec_' + Date.now(),
-            nombre: nombre,
-            imagen: imagen,
-            margen: margen,
-            ingredientes: [...window.ingredientesRecetaActual],
-            costoTotal: costoTotal,
-            precioSugerido: precioSugerido,
-            descripcion: descripcion,
-            pasos: pasos
-        };
+        btnGuardarReceta.disabled = true;
+        btnGuardarReceta.textContent = "Guardando...";
 
-        if (window.recetaEnEdicionId) {
-            // Actualizar existente
-            const index = window.sweetcostRecetas.findIndex(r => r.id === window.recetaEnEdicionId);
-            if (index !== -1) window.sweetcostRecetas[index] = recetaData;
-        } else {
-            // Nueva receta
-            window.sweetcostRecetas.push(recetaData);
+        try {
+            const { data: { user }, error: userError } = await window.supabase.auth.getUser();
+            if (userError || !user) throw new Error("Usuario no autenticado en Supabase.");
+
+            let recetaId = window.recetaEnEdicionId;
+
+            // PASO A: Insertar o actualizar la cabecera en la tabla 'recetas'
+            if (recetaId) {
+                const { error: updateError } = await window.supabase
+                    .from('recetas')
+                    .update({
+                        nombre: nombre,
+                        pasos: pasos,
+                        margen_ganancia: margen,
+                        visibilidad: 'privada' // por defecto
+                    })
+                    .eq('id', recetaId);
+
+                if (updateError) throw updateError;
+
+                // Limpiar relaciones anteriores de ingredientes en 'receta_ingredientes'
+                const { error: deleteRelationsError } = await window.supabase
+                    .from('receta_ingredientes')
+                    .delete()
+                    .eq('receta_id', recetaId);
+
+                if (deleteRelationsError) throw deleteRelationsError;
+            } else {
+                const { data: insertData, error: insertError } = await window.supabase
+                    .from('recetas')
+                    .insert([{
+                        user_id: user.id,
+                        nombre: nombre,
+                        pasos: pasos,
+                        margen_ganancia: margen,
+                        visibilidad: 'privada' // por defecto
+                    }])
+                    .select();
+
+                if (insertError) throw insertError;
+                recetaId = insertData[0].id;
+            }
+
+            // PASO B: Insertar relaciones de ingredientes en la tabla intermedia 'receta_ingredientes'
+            if (window.ingredientesRecetaActual.length > 0) {
+                const rowsToInsert = window.ingredientesRecetaActual.map(ing => {
+                    const ingredienteGlobal = window.sweetcostIngredientes.find(i => i.id === ing.id);
+                    const unidadBase = ingredienteGlobal ? ingredienteGlobal.unidad : ing.unidad;
+                    
+                    // LÓGICA DE ALMACENAMIENTO: Convertir la cantidad a la unidad base antes de guardar en DB
+                    const cantidadBase = convertirUnidad(ing.cantidadReceta, ing.unidadReceta, unidadBase);
+
+                    return {
+                        receta_id: recetaId,
+                        ingrediente_id: ing.id,
+                        cantidad: cantidadBase
+                    };
+                });
+
+                const { error: insertRelationsError } = await window.supabase
+                    .from('receta_ingredientes')
+                    .insert(rowsToInsert);
+
+                if (insertRelationsError) throw insertRelationsError;
+            }
+
+            // Recargar datos actualizados desde la BD y volver a renderizar
+            await window.cargarRecetasDesdeSupabase();
+
+            vistaForm.classList.add("hidden");
+            vistaLista.classList.remove("hidden");
+        } catch (err) {
+            console.error("Error al procesar la receta:", err);
+            alert("Error al guardar receta en Supabase: " + (err.message || err));
+        } finally {
+            btnGuardarReceta.disabled = false;
+            btnGuardarReceta.textContent = "Guardar Receta";
         }
-        localStorage.setItem('sweetcost_recetas', JSON.stringify(window.sweetcostRecetas));
-
-        window.renderizarGridRecetas();
-        vistaForm.classList.add("hidden");
-        vistaLista.classList.remove("hidden");
     });
 
     window.renderizarGridRecetas = (filtro = "") => {
         gridRecetas.innerHTML = "";
 
-        // Asegurar regresar al listado si el visor de detalle está activo o si se busca
         if (filtro || !vistaDetalle.classList.contains("hidden")) {
             vistaDetalle.classList.add("hidden");
             vistaLista.classList.remove("hidden");
@@ -390,9 +512,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         };
 
-        let recetasAMostrar = window.sweetcostRecetas;
+        let recetasAMostrar = window.sweetcostRecetas || [];
         if (filtro) {
-            recetasAMostrar = window.sweetcostRecetas.filter(receta => 
+            recetasAMostrar = recetasAMostrar.filter(receta => 
                 receta.nombre.toLowerCase().includes(filtro)
             );
         }
@@ -404,10 +526,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         recetasAMostrar.forEach(receta => {
-            // Recalcular el costo basado en los precios actuales (por si cambiaron desde Ingredientes)
             let costoReal = 0;
-
-            // Armar una pequeña lista de ingredientes para mostrar en la tarjeta (UX)
             let nombresIngredientes = [];
 
             receta.ingredientes.forEach(ing => {
@@ -426,7 +545,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const precioSugeridoReal = costoReal * (1 + (receta.margen / 100));
 
-            // Actualizar receta en memoria con los nuevos valores calculados
             receta.costoTotal = costoReal;
             receta.precioSugerido = precioSugeridoReal;
 
@@ -489,7 +607,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const roundedMargen = Math.round((receta.margen || 0) / 5) * 5;
         inputMargen.value = Math.max(0, Math.min(100, roundedMargen));
 
-        // Copia profunda de ingredientes para no mutar el estado antes de guardar, normalizando al nuevo formato
         window.ingredientesRecetaActual = JSON.parse(JSON.stringify(receta.ingredientes)).map(ing => {
             return {
                 id: ing.id,
@@ -501,13 +618,14 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         });
 
-        vistaLista.classList.add("hidden");
         vistaForm.classList.remove("hidden");
+        vistaLista.classList.add("hidden");
         window.poblarSelectIngredientes();
         window.renderizarTablaReceta();
         window.calcularCostos();
     };
 
+    // Borrado físico de recetas
     window.eliminarReceta = (id) => {
         const receta = window.sweetcostRecetas.find(r => r.id === id);
         if (!receta) return;
@@ -515,10 +633,21 @@ document.addEventListener("DOMContentLoaded", () => {
         window.mostrarConfirmacion(
             "Eliminar Receta",
             `¿Deseas eliminar la siguiente receta: ${receta.nombre}?`,
-            () => {
-                window.sweetcostRecetas = window.sweetcostRecetas.filter(r => r.id !== id);
-                localStorage.setItem('sweetcost_recetas', JSON.stringify(window.sweetcostRecetas));
-                window.renderizarGridRecetas();
+            async () => {
+                try {
+                    const { error } = await window.supabase
+                        .from('recetas')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    window.sweetcostRecetas = window.sweetcostRecetas.filter(r => r.id !== id);
+                    window.renderizarGridRecetas();
+                } catch (err) {
+                    console.error("Error al eliminar receta:", err);
+                    alert("Error al eliminar la receta de Supabase: " + (err.message || err));
+                }
             }
         );
     };
@@ -527,42 +656,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const receta = window.sweetcostRecetas.find(r => r.id === id);
         if (!receta) return;
 
-        // Pestañas / Vistas
         vistaLista.classList.add("hidden");
         vistaForm.classList.add("hidden");
         vistaDetalle.classList.remove("hidden");
 
-        // Inyección de textos básicos
         detalleNombre.textContent = receta.nombre;
         detalleDescripcion.textContent = receta.descripcion || "Sin descripción disponible.";
-        
-        // Imagen con fallback
         detalleImagen.src = receta.imagen || 'https://images.unsplash.com/photo-1557308536-ee471ef2c390?w=500&auto=format&fit=crop';
         detalleImagen.alt = receta.nombre;
 
-        // Renderizado de Ingredientes
         detalleIngredientes.innerHTML = "";
-        
-        const pluralizarUnidad = (cantidad, unidad) => {
-            const u = unidad.toLowerCase();
-            if (cantidad === 1) {
-                if (u === 'gramos') return 'gramo';
-                if (u === 'unidades') return 'unidad';
-                if (u === 'litros') return 'litro';
-                return u;
-            } else {
-                if (u === 'gramo') return 'gramos';
-                if (u === 'unidad') return 'unidades';
-                if (u === 'litro') return 'litros';
-                return u;
-            }
-        };
 
         if (receta.ingredientes.length === 0) {
             detalleIngredientes.innerHTML = '<li class="text-gray-500 italic font-bold">Sin ingredientes agregados.</li>';
         } else {
             receta.ingredientes.forEach(ing => {
-                const ingredienteGlobal = window.sweetcostIngredientes.find(i => i.id === ing.id);
                 const cantReceta = ing.cantidadReceta !== undefined ? ing.cantidadReceta : ing.cantidad;
                 const unReceta = ing.unidadReceta !== undefined ? ing.unidadReceta : ing.unidad;
                 const unidadFormateada = pluralizarUnidad(cantReceta, unReceta);
@@ -573,7 +681,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // Renderizado de Pasos
         if (receta.pasos && receta.pasos.trim()) {
             detallePasos.textContent = receta.pasos;
         } else {
@@ -586,6 +693,12 @@ document.addEventListener("DOMContentLoaded", () => {
         vistaLista.classList.remove("hidden");
     });
 
-    // Render inicial
-    window.renderizarGridRecetas();
+    // Gatillar la carga inicial si la sesión de Supabase ya está lista
+    if (window.supabase) {
+        window.supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                window.cargarRecetasDesdeSupabase();
+            }
+        });
+    }
 });
