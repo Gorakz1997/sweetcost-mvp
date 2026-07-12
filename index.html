@@ -36,8 +36,11 @@
                 <!-- Campo Password -->
                 <div>
                     <label for="auth-password" class="block text-lg font-bold mb-2 text-black">Contraseña</label>
-                    <input type="password" id="auth-password" placeholder="••••••••" required minlength="6"
-                        class="w-full text-black font-bold p-3 bg-white border-[3px] border-black shadow-[4px_4px_0px_#000000] focus:outline-none focus:bg-[#FFF5EE] transition-all">
+                    <div class="relative w-full">
+                        <input type="password" id="auth-password" placeholder="••••••••" required minlength="6"
+                            class="w-full text-black font-bold p-3 pr-12 bg-white border-[3px] border-black shadow-[4px_4px_0px_#000000] focus:outline-none focus:bg-[#FFF5EE] transition-all">
+                        <button type="button" id="btn-toggle-password-visibility" class="absolute right-3 top-1/2 -translate-y-1/2 font-black text-lg select-none cursor-pointer focus:outline-none">👁️</button>
+                    </div>
                 </div>
 
                 <!-- Botón de Envío (Naranja) -->

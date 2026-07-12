@@ -1,5 +1,5 @@
 // js/auth.js
-// Controlador de Autenticación para SweetCost Cloud (Manejo de Errores Ultra-Explícito)
+// Controlador de Autenticación para SweetCost Cloud
 
 document.addEventListener("DOMContentLoaded", () => {
     // Referencias del DOM de Autenticación
@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Intercambio dinámico de modo (Login <-> Registro)
     if (btnToggleMode) {
         btnToggleMode.addEventListener("click", (e) => {
-            e.preventDefault(); // Evitar cualquier comportamiento no deseado
+            e.preventDefault();
             isLoginMode = !isLoginMode;
             if (isLoginMode) {
                 authTitle.textContent = "Iniciar Sesión";
@@ -40,28 +40,21 @@ document.addEventListener("DOMContentLoaded", () => {
     // Manejo de Envío de Formulario (SignUp y SignIn)
     if (formAuth) {
         formAuth.addEventListener("submit", async (e) => {
-            // REQUERIMIENTO: Evitar la recarga de página al inicio de todo
+            // e.preventDefault() inmediatamente al inicio del evento
             e.preventDefault();
             
             const email = emailInput.value.trim();
             const password = passwordInput.value;
 
-            // Validación de campos vacíos
             if (!email || !password) {
-                alert("Por favor, completa todos los campos requeridos.");
+                alert("Error: Por favor, completa todos los campos.");
                 return;
             }
 
-            // REQUERIMIENTO: Validación de contraseña de al menos 6 caracteres antes del envío
-            if (password.length < 6) {
-                alert("La contraseña debe tener al menos 6 caracteres");
-                return;
-            }
-
-            // Deshabilitar botón para feedback visual
+            // Deshabilitar botón temporalmente para evitar peticiones duplicadas
             btnSubmit.disabled = true;
             const originalText = btnSubmit.textContent;
-            btnSubmit.textContent = isLoginMode ? "Ingresando..." : "Creando cuenta...";
+            btnSubmit.textContent = isLoginMode ? "Ingresando..." : "Registrando...";
 
             try {
                 if (isLoginMode) {
@@ -72,39 +65,34 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                     
                     if (error) {
-                        console.error("ERROR DETALLADO DE SUPABASE (INICIO DE SESIÓN):", error);
-                        alert("Error al iniciar sesión: " + error.message);
+                        console.error("Error capturado:", error);
+                        alert("Error: " + error.message);
                         return;
                     }
+
+                    // Limpiar campos del formulario al tener éxito
+                    emailInput.value = "";
+                    passwordInput.value = "";
                 } else {
-                    // Flujo de Registro de Usuario
-                    // REQUERIMIENTO: Utilizar supabase.auth.signUp() para registro nativo en Supabase v2
+                    // Flujo de Registro Estándar Obligatorio
                     const { data, error } = await window.supabase.auth.signUp({
                         email: email,
                         password: password
                     });
                     
                     if (error) {
-                        // REQUERIMIENTO: Imprimir error detallado en consola y lanzar alert explícito
-                        console.error("ERROR DETALLADO DE SUPABASE:", error);
-                        alert("Error al registrarse: " + error.message);
+                        console.error("Error capturado:", error);
+                        alert("Error: " + error.message);
                         return;
                     }
                     
-                    alert("¡Registro exitoso! Ya puedes iniciar sesión.");
-                    // Cambiar automáticamente a modo login para ingresar
-                    isLoginMode = true;
-                    authTitle.textContent = "Iniciar Sesión";
-                    authSubtitle.textContent = "Introduce tus credenciales para acceder a SweetCost";
-                    btnSubmit.textContent = "Ingresar";
-                    btnToggleMode.textContent = "¿No tienes cuenta? Regístrate";
-                    
-                    // Limpiar contraseñas
+                    // Limpiar campos del formulario al tener éxito
+                    emailInput.value = "";
                     passwordInput.value = "";
                 }
             } catch (err) {
-                console.error("ERROR INESPERADO EN EL PROCESO:", err);
-                alert("Ocurrió un error inesperado: " + (err.message || err));
+                console.error("Error inesperado:", err);
+                alert("Error: " + (err.message || err));
             } finally {
                 btnSubmit.disabled = false;
                 btnSubmit.textContent = originalText;
@@ -119,14 +107,24 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const { error } = await window.supabase.auth.signOut();
                 if (error) {
-                    console.error("ERROR DETALLADO DE SUPABASE (CERRAR SESIÓN):", error);
-                    alert("Error al cerrar sesión: " + error.message);
-                    return;
+                    console.error("Error capturado:", error);
+                    alert("Error: " + error.message);
                 }
             } catch (err) {
-                console.error("ERROR INESPERADO AL CERRAR SESIÓN:", err);
-                alert("Ocurrió un error inesperado al salir: " + (err.message || err));
+                console.error("Error inesperado al cerrar sesión:", err);
+                alert("Error: " + (err.message || err));
             }
+        });
+    }
+
+    // Funcionalidad de Mostrar/Ocultar Contraseña
+    const btnTogglePassword = document.getElementById("btn-toggle-password-visibility");
+    if (btnTogglePassword && passwordInput) {
+        btnTogglePassword.addEventListener("click", (e) => {
+            e.preventDefault(); // Evitar propagaciones secundarias
+            const isPassword = passwordInput.type === "password";
+            passwordInput.type = isPassword ? "text" : "password";
+            btnTogglePassword.textContent = isPassword ? "🙈" : "👁️";
         });
     }
 });
