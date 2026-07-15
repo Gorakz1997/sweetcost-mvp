@@ -64,6 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalInputPrecio = document.getElementById("modal-input-precio");
     const modalSelectUnidad = document.getElementById("modal-select-unidad");
     const modalInputCantidadCompra = document.getElementById("modal-input-cantidad-compra");
+    const modalInputUrlProveedor = document.getElementById("modal-input-url-proveedor");
     const btnGuardarReceta = document.getElementById("btn-guardar-receta");
     const gridRecetas = document.getElementById("grid-recetas");
 
@@ -132,12 +133,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const unidad = modalSelectUnidad.value;
         const cantidadCompra = parseFloat(modalInputCantidadCompra.value);
 
+        // Capturar múltiples enlaces del modal
+        const urlInputsModal = document.querySelectorAll("#container-urls-modal .input-url-proveedor-item-modal");
+        const urlsModal = Array.from(urlInputsModal).map(inp => inp.value.trim()).filter(Boolean);
+
         if (nombre && !isNaN(precio) && !isNaN(cantidadCompra) && cantidadCompra > 0) {
             try {
                 const { data: { user }, error: userError } = await window.supabase.auth.getUser();
                 if (userError || !user) throw new Error("Usuario no autenticado en Supabase.");
 
-                // Guardado físico en la tabla 'ingredientes' (usando columnas reales del esquema)
+                // Guardado físico en la tabla 'ingredientes'
                 const { data, error } = await window.supabase
                     .from('ingredientes')
                     .insert([{
@@ -146,7 +151,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         precio_compra: precio,
                         cantidad_compra: cantidadCompra,
                         unidad: unidad,
-                        precio: precio / cantidadCompra
+                        precio: precio / cantidadCompra,
+                        url_proveedor: urlsModal
                     }])
                     .select();
 
@@ -159,7 +165,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     cantidadCompra: parseFloat(item.cantidad_compra),
                     precioCompra: parseFloat(item.precio_compra),
                     unidad: item.unidad,
-                    precio: parseFloat(item.precio)
+                    precio: parseFloat(item.precio),
+                    urlProveedor: Array.isArray(item.url_proveedor) ? item.url_proveedor : (item.url_proveedor ? [item.url_proveedor] : []),
+                    proveedorActivo: item.proveedor_activo
                 };
 
                 window.sweetcostIngredientes.push(nuevoIng);
@@ -171,6 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 inputUnidadReceta.value = nuevoIng.unidad;
 
                 formModal.reset();
+                if (window.manejadorUrlsModal) window.manejadorUrlsModal.reset();
                 modal.classList.add("hidden");
             } catch (err) {
                 console.error("Error al registrar ingrediente por modal:", err);
@@ -542,33 +551,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const precioSugeridoReal = costoReal * (1 + (receta.margen / 100));
 
-            const listaPreview = nombresIngredientes.length > 0
-                ? `<div class="text-sm text-gray-600 mb-4 h-12 overflow-hidden truncate whitespace-normal">${nombresIngredientes.join(', ')}</div>`
-                : `<div class="text-sm text-gray-400 mb-4 h-12 italic">Sin ingredientes agregados.</div>`;
+            const listadoDeIngredientes = nombresIngredientes.join(', ');
+            const listaPreview = listadoDeIngredientes
+                ? `<div class="text-[11px] md:text-sm text-gray-600 mb-2 h-8 md:h-12 overflow-hidden line-clamp-2 md:line-clamp-3 whitespace-normal" title="${listadoDeIngredientes}">${listadoDeIngredientes}</div>`
+                : `<div class="text-[11px] md:text-sm text-gray-400 mb-2 h-8 md:h-12 italic">Sin ingredientes agregados.</div>`;
 
             const article = document.createElement("article");
-            article.className = "brutal-card flex flex-col bg-white";
+            article.className = "brutal-card flex flex-col bg-white relative";
             article.innerHTML = `
-                <div class="h-48 bg-gray-300 border-b-4 border-black relative">
+                <!-- Botón Eliminar Flotante -->
+                <button class="absolute -top-2 -right-2 z-10 w-9 h-9 md:w-10 md:h-10 flex items-center justify-center bg-[var(--error)] text-white font-black brutal-border brutal-shadow active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all" onclick="eliminarReceta('${receta.id}')">
+                    X
+                </button>
+                <div class="h-32 md:h-48 bg-gray-300 border-b-4 border-black relative">
                     <img src="${receta.imagen}" alt="${receta.nombre}" class="w-full h-full object-cover">
                 </div>
-                <div class="p-5 flex-1 flex flex-col justify-between">
+                <div class="p-3 md:p-5 flex-1 flex flex-col justify-between">
                     <div>
-                        <h3 class="text-2xl font-black mb-1 tracking-tight cursor-pointer hover:underline" onclick="verRecetaDetalle('${receta.id}')">${receta.nombre}</h3>
+                        <h3 class="text-base md:text-2xl font-black mb-1 tracking-tight cursor-pointer hover:underline truncate" onclick="verRecetaDetalle('${receta.id}')" title="${receta.nombre}">${receta.nombre}</h3>
                         ${listaPreview}
                         
-                        <div class="flex justify-between text-base mb-1 font-bold border-b-2 border-dashed border-gray-400 pb-1">
-                            <span>Costo Total:</span>
-                            <span>$ ${costoReal.toFixed(2)}</span>
+                        <div class="flex justify-between text-xs md:text-base mb-1 font-bold border-b-2 border-dashed border-gray-400 pb-1">
+                            <span class="truncate">Costo Total:</span>
+                            <span class="shrink-0">$ ${costoReal.toFixed(2)}</span>
                         </div>
-                        <div class="flex justify-between text-base mb-6 font-bold text-[var(--primary)] pt-1">
-                            <span class="text-[var(--on-background)]">Venta Sugerida:</span>
-                            <span class="text-xl">$ ${precioSugeridoReal.toFixed(2)}</span>
+                        <div class="flex justify-between text-xs md:text-base mb-3 md:mb-6 font-bold text-[var(--primary)] pt-1">
+                            <span class="text-[var(--on-background)] truncate">Venta Sugerida:</span>
+                            <span class="text-sm md:text-xl shrink-0">$ ${precioSugeridoReal.toFixed(2)}</span>
                         </div>
                     </div>
-                    <div class="flex gap-2">
-                        <button class="brutal-btn flex-1 py-2 hover:bg-gray-200 bg-white text-[var(--on-background)] transition-colors" onclick="editarReceta('${receta.id}')">Editar</button>
-                        <button class="brutal-btn px-4 py-2 bg-[var(--error)] text-white hover:bg-red-600" onclick="eliminarReceta('${receta.id}')">Borrar</button>
+                    <div class="flex flex-col md:flex-row gap-2 md:gap-3 w-full mt-auto">
+                        <button class="brutal-btn flex-1 py-1.5 text-xs md:text-sm font-black bg-[var(--secondary-container)] text-black transition-colors" onclick="verRecetaDetalle('${receta.id}')">Ver</button>
+                        <button class="brutal-btn flex-1 py-1.5 text-xs md:text-sm font-black hover:bg-gray-200 bg-white text-[var(--on-background)] transition-colors" onclick="editarReceta('${receta.id}')">Editar</button>
                     </div>
                 </div>
             `;
@@ -676,6 +690,11 @@ document.addEventListener("DOMContentLoaded", () => {
         window.poblarSelectIngredientes();
         window.renderizarTablaReceta();
         window.calcularCostos();
+
+        const panelCargaRapida = document.getElementById("panel-carga-rapida");
+        if (panelCargaRapida) {
+            panelCargaRapida.classList.add("hidden");
+        }
     };
 
     // --- Eliminar Receta ---

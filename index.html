@@ -66,18 +66,24 @@
     </div>
 
     <!-- 1. Navbar Superior (Oculto por defecto hasta autenticarse) -->
-    <nav id="navbar-app" class="brutal-card mb-8 p-4 flex flex-col md:flex-row justify-between items-center gap-4 bg-white hidden">
-        <div class="text-3xl font-black tracking-tighter">
+    <nav id="navbar-app" class="brutal-card mb-8 p-4 flex flex-row justify-between items-center gap-2 md:gap-4 bg-white hidden">
+        <div class="text-xl sm:text-3xl font-black tracking-tighter shrink-0">
             <span class="text-[var(--on-background)]">Sweet</span><span class="text-[var(--primary)]">Cost</span>
         </div>
 
-        <div class="flex-1 max-w-xl w-full">
+        <div class="flex-grow md:flex-1 max-w-xl mx-2 md:mx-0">
             <input type="text" id="input-buscar-global" placeholder="Buscar recetas..." class="brutal-input w-full brutal-shadow">
         </div>
 
-        <div class="flex flex-wrap gap-4 font-bold text-lg justify-center">
+        <div class="block md:hidden shrink-0">
+            <img src="avatar.png" class="w-10 h-10 rounded-full border-[3px] border-black brutal-shadow object-cover" alt="Usuario">
+        </div>
+
+        <div class="hidden md:flex flex-wrap gap-4 font-bold text-lg justify-center">
             <button id="btn-tab-ingredientes"
                 class="px-6 py-3 brutal-border bg-white brutal-shadow active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all">Ingredientes</button>
+            <button id="btn-tab-insumos"
+                class="px-6 py-3 brutal-border bg-white brutal-shadow active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all">Insumos</button>
             <button id="btn-tab-recetas"
                 class="px-6 py-3 brutal-border bg-[var(--secondary-container)] brutal-shadow active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all">Recetas</button>
             <button id="btn-cerrar-sesion"
@@ -90,16 +96,16 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             <!-- Columna Izquierda (Fija - COMÚN A AMBAS PESTAÑAS) -->
-            <aside class="lg:col-span-4">
+            <aside id="panel-carga-rapida" class="lg:col-span-4 hidden lg:block">
                 <div class="brutal-card p-6 sticky top-8 bg-white">
                     <h2 class="text-2xl font-black mb-6 uppercase border-b-4 border-[var(--border-color)] pb-2 flex justify-between items-center">
-                        <span>Carga Rápida</span>
+                        <span id="titulo-carga-rapida">Carga Rápida</span>
                         <button id="btn-toggle-carga-rapida" type="button" class="w-8 h-8 flex items-center justify-center brutal-border brutal-shadow bg-white text-base font-black active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all">▲</button>
                     </h2>
 
                     <form id="form-carga-rapida" class="flex flex-col gap-5">
                         <div>
-                            <label class="block font-bold mb-2 text-lg">Nombre del Ingrediente</label>
+                            <label id="label-nombre-rapido" class="block font-bold mb-2 text-lg">Nombre del Ingrediente</label>
                             <input type="text" id="input-nombre-rapido" placeholder="Ej. Harina 0000"
                                 class="brutal-input w-full brutal-shadow" required>
                         </div>
@@ -129,6 +135,14 @@
                             </div>
                         </div>
 
+                        <div>
+                            <label class="block font-bold mb-2 text-lg">Enlaces Proveedores (Opcional)</label>
+                            <div id="container-urls-rapido" class="flex flex-col gap-2">
+                                <!-- JS inyectará los inputs dinámicos aquí -->
+                            </div>
+                            <button type="button" id="btn-add-url-rapido" class="brutal-btn mt-2 px-3 py-1.5 bg-[var(--secondary-container)] text-xs font-bold hover:-translate-y-0.5 transition-transform">+ Enlace</button>
+                        </div>
+
                         <button type="submit" id="btn-guardar-rapido"
                             class="brutal-btn py-3 mt-4 text-xl">Guardar</button>
                     </form>
@@ -136,7 +150,7 @@
             </aside>
 
             <!-- Columna Derecha (Contenido de las Pestañas) -->
-            <section class="lg:col-span-8">
+            <section class="lg:col-span-8 pb-20 md:pb-0">
 
                 <!-- ================= PESTAÑA: RECETAS ================= -->
                 <div id="seccion-recetas">
@@ -151,7 +165,7 @@
                         </div>
 
                         <!-- Cuadrícula (Grid) de Recetas Mock -->
-                        <div id="grid-recetas" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                        <div id="grid-recetas" class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                             <!-- Las recetas se renderizarán dinámicamente aquí -->
                         </div>
                     </div>
@@ -347,13 +361,22 @@
 
                 <!-- ================= PESTAÑA: INGREDIENTES ================= -->
                 <div id="seccion-ingredientes" class="hidden brutal-card p-6 bg-white w-full">
-                    <h2 class="text-3xl font-black uppercase border-b-4 border-[var(--border-color)] pb-2 mb-6">
-                        Listado de Ingredientes</h2>
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center border-b-4 border-[var(--border-color)] pb-3 mb-6 gap-4">
+                        <h2 class="text-3xl font-black uppercase">Listado de Ingredientes</h2>
+                        <button id="btn-sincronizar-todo" class="brutal-btn brutal-border brutal-shadow px-4 py-2 flex items-center justify-center gap-2 text-sm font-black hover:-translate-y-0.5 transition-transform" onclick="sincronizarTodosLosPrecios()">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73" />
+                                <circle cx="12" cy="12" r="4.5" fill="currentColor" />
+                                <text x="12" y="15" font-family="system-ui, sans-serif" font-size="8.5" font-weight="900" text-anchor="middle" fill="white" stroke="none">$</text>
+                            </svg>
+                            <span>Sincronizar Todo</span>
+                        </button>
+                    </div>
                     <div class="overflow-x-auto">
                         <div id="empty-ingredientes"
                             class="col-span-full p-6 text-center font-bold text-gray-500 bg-white brutal-border hidden">
                             No tienes ingredientes creados todavía.</div>
-                        <div id="grid-ingredientes" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div id="grid-ingredientes" class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                             <!-- JS inyectará las tarjetas aquí -->
                         </div>
                     </div>
@@ -362,6 +385,19 @@
 
             </section>
         </div>
+
+        <!-- Barra de Navegación Inferior (Móvil) -->
+        <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 right-0 md:hidden bg-[#faf6ee] border-t-4 border-black flex justify-around items-center h-16 z-40 px-2 shadow-[0_-4px_0px_#000000] gap-2">
+            <button id="btn-mobile-tab-ingredientes" type="button" class="flex items-center justify-center flex-1 h-11 font-black text-[10px] tracking-tight uppercase text-black bg-white border-4 border-black brutal-shadow hover:bg-gray-100 transition-colors">
+                INGREDIENTES
+            </button>
+            <button id="btn-mobile-tab-insumos" type="button" class="flex items-center justify-center flex-1 h-11 font-black text-[10px] tracking-tight uppercase text-black bg-white border-4 border-black brutal-shadow hover:bg-gray-100 transition-colors">
+                INSUMOS
+            </button>
+            <button id="btn-mobile-tab-recetas" type="button" class="flex items-center justify-center flex-1 h-11 font-black text-[10px] tracking-tight uppercase text-black bg-[var(--secondary-container)] border-4 border-black brutal-shadow hover:bg-gray-100 transition-colors">
+                RECETAS
+            </button>
+        </nav>
     </main>
 
     <!-- 3. Ventana Modal Oculta (Ingrediente Rápido) -->
@@ -403,6 +439,13 @@
                         </select>
                     </div>
                 </div>
+                <div>
+                    <label class="block font-bold mb-2 text-lg">Enlaces Proveedores (Opcional)</label>
+                    <div id="container-urls-modal" class="flex flex-col gap-2">
+                        <!-- JS inyectará los inputs dinámicos aquí -->
+                    </div>
+                    <button type="button" id="btn-add-url-modal" class="brutal-btn mt-2 px-3 py-1.5 bg-[var(--secondary-container)] text-xs font-bold hover:-translate-y-0.5 transition-transform">+ Enlace</button>
+                </div>
                 <button type="submit" class="brutal-btn py-3 mt-4 text-xl">Guardar</button>
             </form>
         </div>
@@ -420,6 +463,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- Carga de Lógica de Negocio -->
     <script src="js/app.js"></script>

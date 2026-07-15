@@ -109,31 +109,102 @@ window.mostrarConfirmacion = (titulo, mensaje, alAceptar) => {
 // Inicialización de la UI y Manejo de Pestañas
 document.addEventListener("DOMContentLoaded", () => {
     const btnTabIngredientes = document.getElementById("btn-tab-ingredientes");
+    const btnTabInsumos = document.getElementById("btn-tab-insumos");
     const btnTabRecetas = document.getElementById("btn-tab-recetas");
+
+    // Elementos de navegación móvil
+    const btnMobileTabIngredientes = document.getElementById("btn-mobile-tab-ingredientes");
+    const btnMobileTabInsumos = document.getElementById("btn-mobile-tab-insumos");
+    const btnMobileTabRecetas = document.getElementById("btn-mobile-tab-recetas");
+    const btnMobileCargaRapida = document.getElementById("btn-mobile-carga-rapida");
+    const btnMobileCerrarSesion = document.getElementById("btn-mobile-cerrar-sesion");
+    const btnCerrarSesion = document.getElementById("btn-cerrar-sesion");
 
     const seccionRecetas = document.getElementById("seccion-recetas");
     const seccionIngredientes = document.getElementById("seccion-ingredientes");
     const inputBuscarGlobal = document.getElementById("input-buscar-global");
+    const panelCargaRapida = document.getElementById("panel-carga-rapida");
 
-    let activeTab = "recetas";
+    window.activeTab = "recetas";
 
     const setActiveTab = (tab) => {
-        activeTab = tab;
+        window.activeTab = tab;
         if (inputBuscarGlobal) {
             inputBuscarGlobal.value = "";
-            inputBuscarGlobal.placeholder = tab === "ingredientes" ? "Buscar ingredientes..." : "Buscar recetas...";
+            inputBuscarGlobal.placeholder = tab === "recetas" ? "Buscar recetas..." : (tab === "ingredientes" ? "Buscar ingredientes..." : "Buscar insumos...");
         }
+
+        const tituloSeccion = document.querySelector("#seccion-ingredientes h2");
+        const tituloCargaRapida = document.getElementById("titulo-carga-rapida");
+        const labelNombreRapido = document.getElementById("label-nombre-rapido");
+        const inputNombreRapido = document.getElementById("input-nombre-rapido");
 
         if (tab === "ingredientes") {
             seccionRecetas.classList.add("hidden");
             seccionIngredientes.classList.remove("hidden");
 
+            if (tituloSeccion) tituloSeccion.textContent = "Listado de Ingredientes";
+            if (tituloCargaRapida) tituloCargaRapida.textContent = "Carga Rápida";
+            if (labelNombreRapido) labelNombreRapido.textContent = "Nombre del Ingrediente";
+            if (inputNombreRapido) inputNombreRapido.placeholder = "Ej. Harina 0000";
+
             if (typeof window.renderizarTablaIngredientes === 'function') {
                 window.renderizarTablaIngredientes();
             }
 
-            btnTabIngredientes.classList.replace("bg-white", "bg-[var(--secondary-container)]");
-            btnTabRecetas.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+            if (panelCargaRapida) {
+                panelCargaRapida.classList.remove("hidden");
+            }
+
+            if (btnTabIngredientes) btnTabIngredientes.classList.replace("bg-white", "bg-[var(--secondary-container)]");
+            if (btnTabInsumos) btnTabInsumos.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+            if (btnTabRecetas) btnTabRecetas.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+
+            if (btnMobileTabIngredientes) {
+                btnMobileTabIngredientes.classList.add("bg-[var(--secondary-container)]");
+                btnMobileTabIngredientes.classList.remove("bg-white");
+            }
+            if (btnMobileTabInsumos) {
+                btnMobileTabInsumos.classList.add("bg-white");
+                btnMobileTabInsumos.classList.remove("bg-[var(--secondary-container)]");
+            }
+            if (btnMobileTabRecetas) {
+                btnMobileTabRecetas.classList.add("bg-white");
+                btnMobileTabRecetas.classList.remove("bg-[var(--secondary-container)]");
+            }
+        } else if (tab === "insumos") {
+            seccionRecetas.classList.add("hidden");
+            seccionIngredientes.classList.remove("hidden");
+
+            if (tituloSeccion) tituloSeccion.textContent = "Listado de Insumos";
+            if (tituloCargaRapida) tituloCargaRapida.textContent = "Carga Rápida Insumos";
+            if (labelNombreRapido) labelNombreRapido.textContent = "Nombre del Insumo";
+            if (inputNombreRapido) inputNombreRapido.placeholder = "Ej. Caja para Tortas, Moldes";
+
+            if (typeof window.renderizarTablaIngredientes === 'function') {
+                window.renderizarTablaIngredientes();
+            }
+
+            if (panelCargaRapida) {
+                panelCargaRapida.classList.remove("hidden");
+            }
+
+            if (btnTabInsumos) btnTabInsumos.classList.replace("bg-white", "bg-[var(--secondary-container)]");
+            if (btnTabIngredientes) btnTabIngredientes.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+            if (btnTabRecetas) btnTabRecetas.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+
+            if (btnMobileTabInsumos) {
+                btnMobileTabInsumos.classList.add("bg-[var(--secondary-container)]");
+                btnMobileTabInsumos.classList.remove("bg-white");
+            }
+            if (btnMobileTabIngredientes) {
+                btnMobileTabIngredientes.classList.add("bg-white");
+                btnMobileTabIngredientes.classList.remove("bg-[var(--secondary-container)]");
+            }
+            if (btnMobileTabRecetas) {
+                btnMobileTabRecetas.classList.add("bg-white");
+                btnMobileTabRecetas.classList.remove("bg-[var(--secondary-container)]");
+            }
         } else {
             seccionIngredientes.classList.add("hidden");
             seccionRecetas.classList.remove("hidden");
@@ -142,13 +213,42 @@ document.addEventListener("DOMContentLoaded", () => {
                 window.renderizarGridRecetas();
             }
 
-            btnTabRecetas.classList.replace("bg-white", "bg-[var(--secondary-container)]");
-            btnTabIngredientes.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+            if (panelCargaRapida) {
+                panelCargaRapida.classList.add("hidden");
+            }
+
+            if (btnTabRecetas) btnTabRecetas.classList.replace("bg-white", "bg-[var(--secondary-container)]");
+            if (btnTabIngredientes) btnTabIngredientes.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+            if (btnTabInsumos) btnTabInsumos.classList.replace("bg-[var(--secondary-container)]", "bg-white");
+
+            if (btnMobileTabRecetas) {
+                btnMobileTabRecetas.classList.add("bg-[var(--secondary-container)]");
+                btnMobileTabRecetas.classList.remove("bg-white");
+            }
+            if (btnMobileTabIngredientes) {
+                btnMobileTabIngredientes.classList.add("bg-white");
+                btnMobileTabIngredientes.classList.remove("bg-[var(--secondary-container)]");
+            }
+            if (btnMobileTabInsumos) {
+                btnMobileTabInsumos.classList.add("bg-white");
+                btnMobileTabInsumos.classList.remove("bg-[var(--secondary-container)]");
+            }
         }
     };
 
     if (btnTabIngredientes) btnTabIngredientes.addEventListener("click", () => setActiveTab("ingredientes"));
+    if (btnTabInsumos) btnTabInsumos.addEventListener("click", () => setActiveTab("insumos"));
     if (btnTabRecetas) btnTabRecetas.addEventListener("click", () => setActiveTab("recetas"));
+
+    if (btnMobileTabIngredientes) btnMobileTabIngredientes.addEventListener("click", () => setActiveTab("ingredientes"));
+    if (btnMobileTabInsumos) btnMobileTabInsumos.addEventListener("click", () => setActiveTab("insumos"));
+    if (btnMobileTabRecetas) btnMobileTabRecetas.addEventListener("click", () => setActiveTab("recetas"));
+
+    if (btnMobileCerrarSesion && btnCerrarSesion) {
+        btnMobileCerrarSesion.addEventListener("click", () => {
+            btnCerrarSesion.click();
+        });
+    }
 
     // Colapsar/Expandir Panel de Carga Rápida
     const btnToggleCargaRapida = document.getElementById("btn-toggle-carga-rapida");
@@ -161,11 +261,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    if (btnMobileCargaRapida) {
+        btnMobileCargaRapida.addEventListener("click", () => {
+            if (btnToggleCargaRapida) {
+                btnToggleCargaRapida.click();
+            }
+        });
+    }
+
     // Buscador Dinámico Global
     if (inputBuscarGlobal) {
         inputBuscarGlobal.addEventListener("input", (e) => {
             const termino = e.target.value.toLowerCase().trim();
-            if (activeTab === "ingredientes") {
+            if (window.activeTab === "ingredientes" || window.activeTab === "insumos") {
                 if (typeof window.renderizarTablaIngredientes === 'function') {
                     window.renderizarTablaIngredientes(termino);
                 }
